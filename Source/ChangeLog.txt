@@ -1,3 +1,6 @@
+v1.0.4.0 
+	Fixed: Some bugs with journal import
+	Removed: Stolen commodity from abandoned transport missions (ignored)
 v1.0.3.0 
 	Added: Exception handling to journal import
 v1.0.2.0 
