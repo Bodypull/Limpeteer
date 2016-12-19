@@ -1,7 +1,7 @@
 #Region ;**** Directives created by AutoIt3Wrapper_GUI ****
-#AutoIt3Wrapper_Icon=..\..\..\..\..\Program Files (x86)\AutoIt3\Aut2Exe\Icons\AutoIt_Main_v10_256x256_RGB-A.ico
-#AutoIt3Wrapper_Outfile=..\..\GitHub\Limpeteer\Source\Limpeteer.Exe
-#AutoIt3Wrapper_Res_Fileversion=1.0.1.0
+#AutoIt3Wrapper_Icon=..\..\..\..\..\..\Program Files (x86)\AutoIt3\Aut2Exe\Icons\AutoIt_Main_v10_256x256_RGB-A.ico
+#AutoIt3Wrapper_Outfile=Limpeteer.Exe
+#AutoIt3Wrapper_Res_Fileversion=1.0.3.0
 #EndRegion ;**** Directives created by AutoIt3Wrapper_GUI ****
 #include <Date.au3>
 #include <GUIConstantsEx.au3>
@@ -177,7 +177,6 @@ Func _ShowInara($Item, $hLV)
 			ShellExecute("http://inara.cz/galaxy-blueprint/" & _GUICtrlListView_GetItemText($lvBlueprints, $Item, 1))
 		EndIf
 	EndIf
-
 EndFunc
 
 Func _ExportCSV()
@@ -860,7 +859,17 @@ Func _CountCommodities()
 
 		If UBound($aCommHaulage) = 1 Then
 			$aCount = StringRegExp($aResult[$i][3], '(?:"Count":)(\d+)', 3)
+			If Not UBound($aCount) > 0 Then
+				_DB("ERROR - Cannot get count on Commodity Mission accepted " & $aResult[$i][3], 1)
+				FileWrite(@ScriptDir & "\Error.log", "ERROR - Cannot get count on Haulage " & $aResult[$i][3] & @CRLF)
+				ContinueLoop
+			EndIf
 			$aId = StringRegExp($aResult[$i][3], '(?:"MissionID":)(\d+)', 3)
+			If Not UBound($aId) > 0 Then
+				_DB("ERROR - Cannot get id on Commodity Mission accepted " & $aResult[$i][3], 1)
+				FileWrite(@ScriptDir & "\Error.log", "ERROR - Cannot get count on Haulage " & $aResult[$i][3] & @CRLF)
+				ContinueLoop
+			EndIf
 			_DB("Cargo Load: " & $aCount[0] & " x " & $aCommHaulage[0], 1)
 			$Query &= "INSERT OR IGNORE INTO cargo VALUES (" & _SQLite_Escape(StringLower($aCommHaulage[0])) & ", 0);"
 			_Execute($Query, $DbED)
@@ -878,18 +887,37 @@ Func _CountCommodities()
 		$aCommHaulage = StringRegExp($aResult[$i][3], '(?:"Commodity":"\x24)((?U).+)(?:_Name)', 3)
 		If UBound($aCommHaulage) > 0 Then
 			$aCount = StringRegExp($aResult[$i][3], '(?:"Count":)(\d+)(?:,)', 3)
-			_DB("Cargo Unload: " & $aCount[0] & " x " & $aCommHaulage[0], 1)
-			$Query = "UPDATE cargo SET count = count - " & $aCount[0] & " WHERE name = " & _SQLite_Escape(StringLower($aCommHaulage[0])) & ";"
+			If UBound($aCount) > 0 Then
+				_DB("Cargo Unload: " & $aCount[0] & " x " & $aCommHaulage[0], 1)
+				$Query = "UPDATE cargo SET count = count - " & $aCount[0] & " WHERE name = " & _SQLite_Escape(StringLower($aCommHaulage[0])) & ";"
+			Else
+				_DB("ERROR - Cannot get count on Haulage " & $aResult[$i][3], 1)
+				FileWrite(@ScriptDir & "\Error.log", "ERROR - Cannot get count on Haulage " & $aResult[$i][3] & @CRLF)
+				ContinueLoop
+			EndIf
 		EndIf
+
 		$aCommReward = StringRegExp($aResult[$i][3], '(?:CommodityReward":\x5B)((?U).+)(?:\x5D)', 3)
 		If UBound($aCommReward) > 0 Then
 			$aName = StringRegExp($aCommReward[0], '(?:\x7B "Name": ")((?U).+)(?:")', 3)
-			$aCount = StringRegExp($aCommReward[0], '(?:"Count": )(\d+)', 3)
+			If UBound($aName) > 0 Then
+				$aCount = StringRegExp($aCommReward[0], '(?:"Count": )(\d+)', 3)
+				If Not UBound($aCount) > 0 Then
+					_DB("ERROR - Cannot get count on Haulage " & $aResult[$i][3], 1)
+					FileWrite(@ScriptDir & "\Error.log", "ERROR - Cannot get count on Haulage " & $aResult[$i][3] & @CRLF)
+					ContinueLoop
+				EndIf
+			Else
+				_DB("ERROR - Cannot get Name on Reward " & $aResult[$i][3], 1)
+				FileWrite(@ScriptDir & "\Error.log", "ERROR - Cannot get Name on Reward " & $aResult[$i][3] & @CRLF)
+				ContinueLoop
+			EndIf
 			_DB("Cargo Reward: " & $aCount[0] & " x " & $aCommHaulage[0], 1)
 			$Query = "INSERT OR IGNORE INTO cargo VALUES (" & _SQLite_Escape($aName[0]) & ", 0);"
 			_Execute($Query, $DbED)
 			$Query = "UPDATE cargo SET count = count + " & $aCount[0] & " WHERE name = " & _SQLite_Escape($aName[0]) & ";"
 		EndIf
+
 		$Query &= "UPDATE journal SET parsed = 1 WHERE filename = " & $aResult[$i][0] & " AND timestamp = " & $aResult[$i][1] & " AND content = " & _SQLite_Escape($aResult[$i][3]) & ";"
 		_Execute($Query, $DbED)
 	Next
@@ -899,8 +927,13 @@ Func _CountCommodities()
 	For $i = 1 To UBound($aResult)-1
 		_SB("Update Commodities Market Buy / Sell " & $i & " / " & UBound($aResult)-1)
 		$aName = StringRegExp($aResult[$i][3], '(?:Type":")((?U).+)(?:")', 3)
-		$aCount = StringRegExp($aResult[$i][3], '(?:Count":)(\d+)', 3)
 		If UBound($aName) = 1 Then
+			$aCount = StringRegExp($aResult[$i][3], '(?:Count":)(\d+)', 3)
+			If Not UBound($aCount) > 0 Then
+				_DB("ERROR - Cannot get count on Haulage " & $aResult[$i][3], 1)
+				FileWrite(@ScriptDir & "\Error.log", "ERROR - Cannot get count on Haulage " & $aResult[$i][3] & @CRLF)
+				ContinueLoop
+			EndIf
 			If $aResult[$i][2] = "MarketSell" Then
 				_DB("Cargo Sold: " & $aCount[0] & " x " & $aName[0], 1)
 				$aCount[0] *= -1
@@ -926,6 +959,11 @@ Func _CountCommodities()
 				Dim $aCount[1] = [-1]
 			Else
 				$aCount = StringRegExp($aResult[$i][3], '(?:Count":)(\d+)', 3)
+				If Not UBound($aCount) > 0 Then
+					_DB("ERROR - Cannot get count on Cargo Collected / Ejected " & $aResult[$i][3], 1)
+					FileWrite(@ScriptDir & "\Error.log", "ERROR - Cannot get count on Haulage " & $aResult[$i][3] & @CRLF)
+					ContinueLoop
+				EndIf
 				_DB("Ejected " & $aCount[0] & " x " & $aName[0], 1)
 			EndIf
 			$Query = "INSERT OR IGNORE INTO cargo VALUES (" & _SQLite_Escape($aName[0]) & ", 0);"

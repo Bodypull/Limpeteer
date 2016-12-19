@@ -1,9 +1,5 @@
-v1.0.0.0 
-	initial release
-
-v1.0.1.0 
-	Added: Double click on list view item now opens inara web page
-	
+v1.0.3.0 
+	Added: Exception handling to journal import
 v1.0.2.0 
 	Added: encoded names. Only guessed, might be wrong
 		"Thermic Alloys"
@@ -16,3 +12,11 @@ v1.0.2.0
 		"Imperial Shielding"
 		"Heat Vanes"
 		"Exquisite Focus Crystals"
+
+v1.0.1.0 
+	Added: Double click on list view item now opens inara web page
+
+v1.0.0.0 
+	initial release
+
+	
