@@ -11,10 +11,10 @@
     <ROW Property="ARPURLUPDATEINFO" Value="https://github.com/Bodypull/Limpeteer"/>
     <ROW Property="MSIFASTINSTALL" MultiBuildValue="DefaultBuild:3"/>
     <ROW Property="Manufacturer" Value="Bodypull"/>
-    <ROW Property="ProductCode" Value="1033:{A4BE754B-77FC-4C26-B4FE-BF3571C1725B} " Type="16"/>
+    <ROW Property="ProductCode" Value="1033:{F7643B04-C427-41B0-9111-5F1D139BC9E0} " Type="16"/>
     <ROW Property="ProductLanguage" Value="1033"/>
     <ROW Property="ProductName" Value="Limpeteer"/>
-    <ROW Property="ProductVersion" Value="1.0.1.0" Type="32" TargetFile="Limpeteer.Exe"/>
+    <ROW Property="ProductVersion" Value="1.0.2.0" Type="32" TargetFile="Limpeteer.Exe"/>
     <ROW Property="SecureCustomProperties" Value="OLDPRODUCTS;AI_NEWERPRODUCTFOUND"/>
     <ROW Property="UpgradeCode" Value="{68E1DFF6-A45E-4DB3-921F-F5E74C8827FB}"/>
     <ROW Property="WindowsType9X" MultiBuildValue="DefaultBuild:Windows 9x/ME" ValueLocId="-"/>

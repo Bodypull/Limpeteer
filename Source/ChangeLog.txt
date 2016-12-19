@@ -3,3 +3,16 @@ v1.0.0.0
 
 v1.0.1.0 
 	Added: Double click on list view item now opens inara web page
+	
+v1.0.2.0 
+	Added: encoded names. Only guessed, might be wrong
+		"Thermic Alloys"
+		"Proto Heat Radiators"
+		"Polymer Capacitors"
+		"Pharmaceutical Isolators"
+		"Military Supercapacitors"
+		"Military Grade Alloys"
+		"Improvised Components"
+		"Imperial Shielding"
+		"Heat Vanes"
+		"Exquisite Focus Crystals"
