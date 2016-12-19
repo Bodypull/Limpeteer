@@ -1,4 +1,4 @@
- As soo# Limpeteer
+# Limpeteer
 Automatically update materials for Elite Dangerous
 
 Limpeteer is a third party app for Elite Dangerous.
