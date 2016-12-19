@@ -1,4 +1,4 @@
-# Limpeteer
+ As soo# Limpeteer
 Automatically update materials for Elite Dangerous
 
 Limpeteer is a third party app for Elite Dangerous.
@@ -34,7 +34,7 @@ FD sometimes uses a funny way to encode material names. E.g.
 
 `'Flawed Focus Crystals' = 'uncutfocuscrystals'`
 
-This makes it unpredictable and a list of clear names needs to be populated. There are still a couple of items missing which did not happen to be within my journal files yet.
+This makes it unpredictable and a list of clear names needs to be populated. There are still a couple of items missing which did not happen to be within my journal files yet. As soon as I will get those missing entries I will update the code.
 
 ### Credits
 Credits to inara.cz for providing tons of data
