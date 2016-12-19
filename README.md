@@ -26,6 +26,8 @@ Finally it compares available materials against engineer's blueprints and shows 
 * Synthesis
 
 ### Known issues
+If you dealt with materials and engineers before FD implemented the journal log the initial count will be most likely wrong and not match with what you actually have in your possession.
+
 FD sometimes uses a funny way to encode material names. E.g. 
 
 `'Core Dynamics Composites' = 'fedcorecomposites'`, 
