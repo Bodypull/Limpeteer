@@ -1,3 +1,8 @@
+#Region ;**** Directives created by AutoIt3Wrapper_GUI ****
+#AutoIt3Wrapper_Icon=..\..\..\..\..\Program Files (x86)\AutoIt3\Aut2Exe\Icons\AutoIt_Main_v10_256x256_RGB-A.ico
+#AutoIt3Wrapper_Outfile=..\..\GitHub\Limpeteer\Source\Limpeteer.Exe
+#AutoIt3Wrapper_Res_Fileversion=1.0.0.0
+#EndRegion ;**** Directives created by AutoIt3Wrapper_GUI ****
 #include <Date.au3>
 #include <GUIConstantsEx.au3>
 #include <StructureConstants.au3>
@@ -12,20 +17,23 @@
 #include <GuiEdit.au3>
 #include <Inet.au3>
 #include <GuiComboBox.au3>
+#include "ExtMsgBox.au3"
+#include <Misc.au3>
 #include "_Tools.au3"
 
 ; Credits to inara for providing data
 
+_ExtMsgBoxSet(2+4+32)
+
+If _Singleton("Limpeteer", 1) = 0 Then
+	_ExtMsgBox($EMB_ICONSTOP, "Close", "", "Another Instance of Limpeteer os already running")
+	Exit
+EndIf
+
 Opt("TrayIconHide", 1) ;0=show, 1=hide tray icon
 Opt("GUICloseOnESC", 0) ;1=ESC  closes, 0=ESC won't close
 
-_SQLite_Startup()
 
-Global $DbED = _SQLite_Open("edmat.db")
-If $DbED = 0 Then
-	MsgBox(0, "Error", "Error opening Database @error: " & @error & " Extended: " & @extended & " Message: " & _SQLite_ErrMsg($DbED))
-	_Exit()
-EndIf
 
 Global $TimerCheckJournal
 Global $LastFilePointer = -1
@@ -36,45 +44,63 @@ Global $sKeppEvents = "CollectCargo,Died,EjectCargo,EngineerCraft,MarketBuy,Mark
 Global $fIni = @ScriptDir & "\settings.ini"
 Global $Path = IniRead($fIni, "PATH", "JOURNAL", @UserProfileDir & "\Saved Games\Frontier Developments\Elite Dangerous\")
 
-$Gui = GUICreate("Limpeteer", 400, 400, IniRead($fIni, "WINPOS", "GUIX", -1), IniRead($fIni, "WINPOS", "GUIY", -1))
+$Gui = GUICreate("Limpeteer", 400, 370, IniRead($fIni, "WINPOS", "GUIX", -1), IniRead($fIni, "WINPOS", "GUIY", -1))
+$WinPos = WinGetPos($Gui)
+$ClientSize = WinGetClientSize($Gui)
+
+
 $MenuFile = GUICtrlCreateMenu("File")
+$MenuFileExport = GUICtrlCreateMenuItem("Export CSV", $MenuFile)
+GUICtrlCreateMenuItem("", $MenuFile)
 $MenuFileRebuild = GUICtrlCreateMenuItem("Rebuild Database", $MenuFile)
 GUICtrlCreateMenuItem("", $MenuFile)
 $MenuFileClose = GUICtrlCreateMenuItem("Exit", $MenuFile)
 $MenuView = GUICtrlCreateMenu("View")
 $MenuViewMaterials = GUICtrlCreateMenuItem("Show Materials", $MenuView)
-$GroupBluePrints = GUICtrlCreateGroup("Blueprints", 10, 10, 380, 160)
+$MenuHelp = GUICtrlCreateMenu("Help")
+$MenuHelpAbout = GUICtrlCreateMenuItem("About", $MenuHelp)
+
+$GroupBluePrints = GUICtrlCreateGroup("Blueprints", 10, 10, 380, 150)
 GUICtrlCreateLabel("Category", 20, 32)
-$ComboCat = GUICtrlCreateCombo("Any", 120, 30, 200)
+$ComboCat = GUICtrlCreateCombo("Any", 120, 30, 250)
 GUICtrlCreateLabel("Modifiaction", 20, 62)
-$ComboMod = GUICtrlCreateCombo("Any", 120, 60, 200)
+$ComboMod = GUICtrlCreateCombo("Any", 120, 60, 250)
 GUICtrlCreateLabel("Engineer / Grade", 20, 92)
-$ComboEng = GUICtrlCreateCombo("Any", 120, 90, 140)
-$ComboLvl = GUICtrlCreateCombo("Any", 270, 90, 50)
-$ButtonShow = GUICtrlCreateButton("Show", 120, 120, 90)
-$ButtonReset = GUICtrlCreateButton("Reset", 230, 120, 90)
+$ComboEng = GUICtrlCreateCombo("Any", 120, 90, 180)
+$ComboLvl = GUICtrlCreateCombo("Any", 310, 90, 60)
+$ButtonShow = GUICtrlCreateButton("Show", 120, 120, 100)
+$ButtonReset = GUICtrlCreateButton("Reset", 270, 120, 100)
 GUICtrlCreateGroup("", -99, -99, 1, 1)
 
 $StatusBar = _GUICtrlStatusBar_Create($Gui)
-$EditDebug = _GUICtrlEdit_Create($Gui, "", 0, 205, 400, 150)
+
+$EditDebug = _GUICtrlEdit_Create($Gui, "", 0, $ClientSize[1]-150-45, $ClientSize[0], 150)
+
+_SQLite_Startup()
+
+Global $DbED = _SQLite_Open("edmat.db")
+If $DbED = 0 Then
+	If _ExtMsgBox($EMB_ICONSTOP, "Exit|Ignore", @ScriptName, "Error opening Database @error: " & @error & " Extended: " & @extended & " Message: " & _SQLite_ErrMsg($DbED), 0) = 1 Then _Exit()
+EndIf
+
 _PopCombo()
 GUISetState()
-$GuiMaterials = GUICreate("Data / Materials", IniRead($fIni, "WINPOS", "MATW", 600), IniRead($fIni, "WINPOS", "MATH", 600), IniRead($fIni, "WINPOS", "MATX", -1), IniRead($fIni, "WINPOS", "MATY", -1), $WS_MAXIMIZEBOX+$WS_MINIMIZEBOX+$WS_SIZEBOX)
+
+
+$GuiMaterials = GUICreate("Data / Materials", IniRead($fIni, "WINPOS", "MATW", 600), IniRead($fIni, "WINPOS", "MATH", 600), IniRead($fIni, "WINPOS", "MATX", $WinPos[0]+100), IniRead($fIni, "WINPOS", "MATY", $WinPos[1]+50), $WS_MAXIMIZEBOX+$WS_MINIMIZEBOX+$WS_SIZEBOX, "")
 $ClientSize = WinGetClientSize($GuiMaterials)
 $lvMaterials = GUICtrlCreateListView("", 0, 0,  $ClientSize[0], $ClientSize[1], $LVS_REPORT+$LVS_EDITLABELS, $LVS_EX_GRIDLINES+$LVS_EX_FULLROWSELECT)
-GUISetState()
+
 
 $GuiBlueprints = GUICreate("Blueprints", IniRead($fIni, "WINPOS", "BLUW", 600), IniRead($fIni, "WINPOS", "BLUH", 300), IniRead($fIni, "WINPOS", "BLUX", -1), IniRead($fIni, "WINPOS", "BLUY", -1), $WS_MAXIMIZEBOX+$WS_MINIMIZEBOX+$WS_SIZEBOX)
 $ClientSize = WinGetClientSize($GuiBlueprints)
-$lvBlueprints = GUICtrlCreateListView("", 0, 0, $ClientSize[0], $ClientSize[1], $LVS_REPORT+$LVS_EDITLABELS, $LVS_EX_GRIDLINES+$LVS_EX_FULLROWSELECT)
+$lvBlueprints = GUICtrlCreateListView("", 0, 0, $ClientSize[0], $ClientSize[1], $LVS_REPORT, $LVS_EX_GRIDLINES+$LVS_EX_FULLROWSELECT)
 
 $g_hListView = $lvMaterials
 _GUICtrlListView_RegisterSortCallBack($lvMaterials)
 _GUICtrlListView_RegisterSortCallBack($lvBlueprints)
 
-HotKeySet("{F5}", "_Exit")
-
-$Change = False
+If Not @Compiled Then HotKeySet("{F5}", "_Exit")
 
 _ParseJournal()
 _CountCommodities()
@@ -110,6 +136,12 @@ While 1
 			_ResetFilter()
 		Case $ButtonShow
 			_ShowBluePrint()
+		Case $MenuHelpAbout
+			If _ExtMsgBox($EMB_ICONINFO, "Visit|Close", "About", "Limpeteer Version: " & FileGetVersion(@ScriptFullPath) & @CRLF & @CRLF & "Material parser for Elite Dangerous v2.2.02" & @CRLF & @CRLF & "Developed by Bodypull" & @CRLF & @CRLF & "https://github.com/Bodypull/Limpeteer", 0, $Gui) = 1 Then
+				ShellExecute("https://github.com/Bodypull/Limpeteer")
+			EndIf
+		Case $MenuFileExport
+			_ExportCSV()
 	EndSwitch
 
 	If TimerDiff($TimerCheckJournal) > 500 Then
@@ -129,6 +161,60 @@ While 1
 		EndIf
 	EndIf
 WEnd
+
+Func _ExportCSV()
+	$File = FileSaveDialog("Export CSV", "::{450D8FBA-AD25-11D0-98A8-0800361B1103}" , "CSV (*.csv)",  $FD_PATHMUSTEXIST+ $FD_PROMPTOVERWRITE, "Limpeteer Export.csv", $Gui)
+	If @error Then Return
+	$Query = ""
+	$Query &= "SELECT "
+	$Query &= "count AS 'Count', "
+	$Query &= "clearNames.clearName AS 'Name', "
+	$Query &= "category AS 'Category', "
+	$Query &= "COUNT(blueprintID) AS 'Used', "
+	$Query &= "components.grade AS 'Grade', "
+	$Query &= "materials.name AS 'Encoded Name' "
+	$Query &= "FROM materials "
+	$Query &= "LEFT JOIN clearNames ON LOWER(clearNames.name) = LOWER(materials.name) "
+	$Query &= "LEFT JOIN components ON clearNames.clearName = components.name "
+	$Query &= "LEFT JOIN ingredients ON ingredients.component = components.inaraID "
+	$Query &= "WHERE count <> 0 "
+	$Query &= "GROUP BY materials.name "
+
+	$Query &= "UNION ALL "
+
+	$Query &= "SELECT "
+	$Query &= "count AS 'Count', "
+	$Query &= "commodities.name AS 'Name', "
+	$Query &= "'Commodity' AS 'Category', "
+	$Query &= "COUNT(blueprintID) AS 'Used', "
+	$Query &= "components.grade AS 'Grade', "
+	$Query &= "cargo.name AS 'Encoded Name' "
+	$Query &= "FROM cargo "
+	$Query &= "LEFT JOIN commodities ON cargo.name = REPLACE(LOWER(commodities.name), ' ', '') "
+	$Query &= "LEFT JOIN components ON components.name = commodities.name "
+	$Query &= "LEFT JOIN ingredients ON ingredients.component = components.inaraID "
+	$Query &= "WHERE count <> 0 "
+	$Query &= "GROUP BY cargo.name "
+	$Query &= "ORDER BY commodities.name ASC "
+
+	$aResult = _GetTable($Query, $DbED)
+	If @error Then Return
+	$sCSV = ""
+	For $i = 0 To UBound($aResult)-1
+		For $j = 0 To UBound($aResult, 2)-1
+			$sCSV &= $aResult[$i][$j]
+			If $j < UBound($aResult, 2)-1 Then $sCSV &= ","
+		Next
+		$sCSV &= @CRLF
+	Next
+	$hFile = FileOpen($File, $FO_OVERWRITE)
+	If FileWrite($hFile, $sCSV) = 1 Then
+		_DB(UBound($aResult)-2 & " Entries exported", 1)
+	Else
+		_DB("Failed to write to " & $File, 1)
+	EndIf
+	FileClose($hFile)
+EndFunc
 
 Func _ShowBluePrint()
 	$Query = "SELECT "
@@ -167,7 +253,6 @@ Func _ShowBluePrint()
 			$aResult[$i][$Columns + ($j-1) * 2] = $aComponents[$j][0]
 			$Query = "SELECT count FROM materials JOIN clearNames ON clearNames.name = materials.name AND clearName = " & _SQLite_Escape($aComponents[$j][0])
 
-;~ 			_ArrayDisplay($aCount, $aComponents[$j][0])
 			$aResult[$i][$Columns + ($j-1) * 2 + 1] = $aComponents[$j][1]
 			$aCount = _GetTable($Query, $DbED)
 			If UBound($aCount) > 1 Then
@@ -178,14 +263,12 @@ Func _ShowBluePrint()
 			EndIf
 			If Not StringInStr($aResult[$i][6], "[") Then
 				$aResult[$i][0] = "-"
-;~ 				ContinueLoop
 			EndIf
 			If $aResult[$i][0] <> "-" And $aResult[$i][8] <> "" And Not StringInStr($aResult[$i][8], "[") Then
 				If StringInStr($aResult[$i][9], "Market") Then
 					$aResult[$i][0] = "[Market] Yes"
 				Else
 					$aResult[$i][0] = "-"
-;~ 					ContinueLoop
 				EndIf
 			EndIf
 			If $aResult[$i][0] <> "-" And $aResult[$i][10] <> "" And Not StringInStr($aResult[$i][10], "[") Then
@@ -193,7 +276,6 @@ Func _ShowBluePrint()
 					$aResult[$i][0] = "[Market] Yes"
 				Else
 					$aResult[$i][0] = "-"
-;~ 					ContinueLoop
 				EndIf
 			EndIf
 			If $aResult[$i][0] <> "-" And $aResult[$i][12] <> "" And Not StringInStr($aResult[$i][12], "[") Then
@@ -201,20 +283,20 @@ Func _ShowBluePrint()
 					$aResult[$i][0] = "[Market] Yes"
 				Else
 					$aResult[$i][0] = "-"
-;~ 					ContinueLoop
 				EndIf
 			EndIf
 		Next
 	Next
 
 	_ArraySort($aResult, 1, 1)
-;~ 	_ArrayDisplay($aResult)
-	WinSetTitle($GuiBlueprints, "", UBound($aResult)-1 & " Blueprints")
+	$sTitle = UBound($aResult)-1 & " Blueprints"
+	If GUICtrlRead($ComboCat) <> "Any" Then $sTitle &= " - Category: " & GUICtrlRead($ComboCat)
+	If GUICtrlRead($ComboMod) <> "Any" Then $sTitle &= " - Modifiaction: " & GUICtrlRead($ComboMod)
+	If GUICtrlRead($ComboEng) <> "Any" Then $sTitle &= " - Engineer: " & GUICtrlRead($ComboEng)
+	If GUICtrlRead($ComboLvl) <> "Any" Then $sTitle &= " - Grade: " & GUICtrlRead($ComboLvl)
+	WinSetTitle($GuiBlueprints, "", $sTitle)
 	GUISetState(@SW_SHOW, $GuiBlueprints)
 	_PopLVBlueprints($aResult)
-
-
-;~ 	_ArrayDisplay($aResult)
 EndFunc
 
 Func _ResetFilter()
@@ -304,8 +386,6 @@ Func _ParseInara()
 	If $Engineers Then
 		$sWeb = _INetGetSource("http://inara.cz/galaxy-engineers")
 		$aEngineers = StringRegExp($sWeb, '(<a href="/galaxy-engineer/\d+(?U).+)(?:</div></div>)', 3)
-
-
 		$Query = "DELETE FROM engineers; " & @CRLF
 		For $i = 0 To UBound($aEngineers)-1
 			$sWeb = $aEngineers[$i]
@@ -361,7 +441,6 @@ Func _PopLVBlueprints($aArray)
 		ElseIf $aCol[5] <> $aArray[0][$i] Then
 			_GUICtrlListView_SetColumn($lvBlueprints, $i, $aArray[0][$i], $Width, $Align)
 		EndIf
-
 	Next
 
 	For $i = 1 To UBound($aArray)-1
@@ -379,12 +458,20 @@ Func _PopLVBlueprints($aArray)
 		Next
 	Next
 	_GUICtrlListView_EndUpdate($lvBlueprints)
-
+	GUISetState(@SW_SHOW, $GuiBlueprints)
+	If BitAND(WinGetState($GuiBlueprints), 16) Then
+		GUISetState(@SW_RESTORE, $GuiBlueprints)
+	EndIf
+	WinActivate($GuiBlueprints)
 EndFunc
 
 Func _PopCombo($ControlID=0)
 	If $ControlID <> $ComboCat Then
 		$Query = "SELECT type FROM blueprints "
+		If GUICtrlRead($ComboLvl) <> "Any" Then
+			$Query &= "JOIN ingredients ON blueprintID = inaraID "
+			$Query &= "AND ingredients.grade = " & GUICtrlRead($ComboLvl) & " "
+		EndIf
 		$Query &= "WHERE type IS NOT NULL "
 		If GUICtrlRead($ComboEng) <> "Any" Then
 			$Query &= "AND engineers LIKE " & _SQLite_Escape("%" & GUICtrlRead($ComboEng) & "%") & " "
@@ -392,6 +479,7 @@ Func _PopCombo($ControlID=0)
 		If GUICtrlRead($ComboMod) <> "Any" Then
 			$Query &= "AND modification = " & _SQLite_Escape(GUICtrlRead($ComboMod)) & " "
 		EndIf
+
 		$Query &= "GROUP BY type ORDER BY type "
 		$aResult = _GetTable($Query, $DbED)
 		$sAdd = "|Any|"
@@ -406,6 +494,10 @@ Func _PopCombo($ControlID=0)
 
 	If $ControlID <> $ComboMod Then
 		$Query = "SELECT modification FROM blueprints "
+		If GUICtrlRead($ComboLvl) <> "Any" Then
+			$Query &= "JOIN ingredients ON blueprintID = inaraID "
+			$Query &= "AND ingredients.grade = " & GUICtrlRead($ComboLvl) & " "
+		EndIf
 		$Query &= "WHERE modification IS NOT NULL "
 		If GUICtrlRead($ComboCat) <> "Any" Then
 			$Query &= "AND type = " & _SQLite_Escape(GUICtrlRead($ComboCat)) & " "
@@ -427,6 +519,7 @@ Func _PopCombo($ControlID=0)
 
 	If $ControlID <> $ComboEng Then
 		$Query = "SELECT engineer FROM engineers "
+
 		$Query &= "WHERE engineer IS NOT NULL "
 
 		If GUICtrlRead($ComboCat) <> "Any" Then
@@ -455,22 +548,55 @@ Func _PopCombo($ControlID=0)
 		$Query &= "WHERE maxGrade IS NOT NULL "
 		If GUICtrlRead($ComboCat) <> "Any" Then
 			$Query &= "AND type = " & _SQLite_Escape(GUICtrlRead($ComboCat)) & " "
+		ElseIf GUICtrlRead($ComboMod) <> "Any" Then
+			$Query &= "AND type IN (SELECT type FROM blueprints WHERE modification = " & _SQLite_Escape(GUICtrlRead($ComboMod)) & ") "
 		EndIf
 		If GUICtrlRead($ComboEng) <> "Any" Then
 			$Query &= "AND engineer = " & _SQLite_Escape(GUICtrlRead($ComboEng)) & " "
 		EndIf
+		$Query &= "UNION ALL "
+		$Query &= "SELECT MAX(grade) FROM ingredients "
+		$Query &= "WHERE grade IS NOT NULL "
+		If GUICtrlRead($ComboCat) <> "Any" Then
+			$Query &= "AND blueprintID IN (SELECT inaraID FROM blueprints WHERE type = " & _SQLite_Escape(GUICtrlRead($ComboCat)) & ") "
+		EndIf
+		If GUICtrlRead($ComboMod) <> "Any" Then
+			$Query &= "AND blueprintID IN (SELECT inaraID FROM blueprints WHERE modification = " & _SQLite_Escape(GUICtrlRead($ComboMod)) & ") "
+		EndIf
+
 		$aResult = _GetTable($Query, $DbED)
+		$MaxGrade = _ArrayMin($aResult, 1, 1)
+
 		If UBound($aResult) > 1 Then
 			$sAdd = "|Any|"
-			For $i = 1 To $aResult[1][0]
+			For $i = 1 To $MaxGrade
 				$sAdd &= $i & "|"
 			Next
 			$Select = GUICtrlRead($ComboLvl)
-			If $Select > $aResult[1][0] Then $Select = "Any"
+			If $Select > $MaxGrade Then $Select = "Any"
 			GUICtrlSetData($ComboLvl, $sAdd, $Select)
 		EndIf
 	EndIf
-
+	$TestTimer = TimerInit()
+	If GUICtrlRead($ComboCat) <> "Any" Or GUICtrlRead($ComboMod) <> "Any" Or GUICtrlRead($ComboEng) <> "Any" Or GUICtrlRead($ComboLvl) <> "Any" Then
+		$Query = "SELECT 1 "
+		$Query &= "FROM blueprints "
+		$Query &= "JOIN ingredients ON blueprintID = blueprints.inaraID "
+		If GUICtrlRead($ComboLvl) <> "Any" Then $Query &= "AND ingredients.grade = " & GUICtrlRead($ComboLvl) & " "
+		$Query &= "JOIN engineers ON engineers.type = blueprints.type "
+		$Query &= "AND engineers.maxGrade >= ingredients.grade "
+		If GUICtrlRead($ComboLvl) <> "Any" Then $Query &= "AND CAST(maxGrade AS int) >= " & GUICtrlRead($ComboLvl) & " "
+		If GUICtrlRead($ComboEng) <> "Any" Then $Query &= "AND engineer = " & _SQLite_Escape(GUICtrlRead($ComboEng)) & " "
+		$Query &= "WHERE blueprints.inaraID IS NOT NULL "
+		If GUICtrlRead($ComboCat) <> "Any" Then $Query &= "AND blueprints.type = " & _SQLite_Escape(GUICtrlRead($ComboCat)) & " "
+		If GUICtrlRead($ComboMod) <> "Any" Then $Query &= "AND modification = " & _SQLite_Escape(GUICtrlRead($ComboMod)) & " "
+		If GUICtrlRead($ComboEng) <> "Any" Then $Query &= "AND engineers LIKE " & _SQLite_Escape("%" & GUICtrlRead($ComboEng) & "%") & " "
+		$Query &= "GROUP BY blueprints.type, modification, grade, engineer "
+		$aResult = _GetTable($Query, $DbED)
+	Else
+		Dim $aResult[1161]
+	EndIf
+	GUICtrlSetData($GroupBluePrints, UBound($aResult)-1 & " Blueprints (" & 1160 - (UBound($aResult)-1) &  " Filtered out)")
 EndFunc
 
 Func _PopLVmaterials()
@@ -558,11 +684,9 @@ Func _PopLVmaterials()
 					_GUICtrlListView_AddSubItem($lvMaterials, $i-1, $aArray[$i][$j], $j)
 				EndIf
 			ElseIf $aItem[3] <> $aArray[$i][$j] Then
-				_DB("Update " & $i & "," & $j)
 				_GUICtrlListView_SetItemText($lvMaterials, $i-1, $aArray[$i][$j], $j)
 			EndIf
 		Next
-;~ 		_ArrayDisplay($aArray)
 		If $aArray[$i][2] = "Commodity" Then
 			_GUICtrlListView_SetItemGroupID($lvMaterials, $i-1, 1)
 		ElseIf $aArray[$i][3] = 0 Then
@@ -581,13 +705,34 @@ Func _PopLVmaterials()
 	_GUICtrlListView_EndUpdate($lvMaterials)
 	$sTitle = "Data (" & $Data & ") - Materials (" & $Materials & ")"
 	If WinGetTitle($GuiMaterials) <> $sTitle Then WinSetTitle($GuiMaterials, "", $sTitle)
-	_DB("Materials: " & $Materials)
-	_DB("Data: " & $Data)
+	If UBound($aArray) > 1 Then GUISetState(@SW_SHOW, $GuiMaterials)
+EndFunc
+
+Func _EditItem($Item)
+	$Input = _GUICtrlListView_GetItemText($lvMaterials, $Item)
+	If $Input = $gValue Then
+		_DB("No Change")
+		Return
+	EndIf
+	If Not StringIsDigit($Input) Then
+		_DB($Input & " Only Digits accepted", 1)
+		_GUICtrlListView_SetItemText($lvMaterials, $Item, $gValue)
+		Return
+	Else
+		If _GUICtrlListView_GetItemGroupID($lvMaterials, $Item) = 1 Then
+			$Query = "UPDATE cargo "
+		Else
+			$Query = "UPDATE materials "
+		EndIf
+		$Query &= "SET count = " & $Input & " WHERE LOWER(name) = " & _SQLite_Escape(StringLower(_GUICtrlListView_GetItemText($lvMaterials, $Item, 5)))
+		_DB("Changed " & $gValue &  " to " & $Input & " for " & _GUICtrlListView_GetItemText($lvMaterials, $Item, 1) & " Encoded: " & _GUICtrlListView_GetItemText($lvMaterials, $Item, 5), 1)
+		_Execute($Query, $DbED)
+	EndIf
 EndFunc
 
 Func _ResetDB()
-	$User = MsgBox($MB_OKCANCEL, "Rebuild Databse", "This will reset the Databse. All Journal Files have to be parsed again.", 0, $Gui)
-	If $User = $IDOK Then
+	$User = _ExtMsgBox($EMB_ICONQUERY, "Yes|No", "Rebuild Databse", "This will reset the Databse. All Journal Files have to be parsed again.", 0, $Gui)
+	If $User = 1 Then
 		$Query = ""
 		$Query &= "DELETE FROM journal; " & @CRLF
 		$Query &= "UPDATE materials SET count = 0; " & @CRLF
@@ -595,19 +740,14 @@ Func _ResetDB()
 		$Query &= "UPDATE cargo SET count = 0; " & @CRLF
 		_Execute($Query, $DbED)
 		_Execute("VACUUM", $DbED)
+		$LastTimeStamp = 0
 		$WatchFile = -1
 		$LastFilePointer = -1
 		$LastFilePointer = -1
 		$LastFileTimeString = -1
 		_PopLVmaterials()
 		_SB("Database Wiped")
-		$User = MsgBox($MB_OKCANCEL, "Database Wiped", "Parse Journal Files now?", 0, $Gui)
-		If $User = $IDOK Then
-			_ParseJournal()
-			_CountCommodities()
-			_CountMaterials()
-			_PopLVmaterials()
-		EndIf
+		_ParseJournal()
 	EndIf
 EndFunc
 
@@ -637,7 +777,6 @@ Func _CountMaterials()
 			If @error Then Return
 		EndIf
 	Next
-	If $i > 1 Then _PopLVmaterials()
 
 	$Query = "SELECT * FROM journal WHERE event = 'EngineerCraft' AND (parsed IS NULL OR parsed = " & $Debug & ")"
 	$aResult = _GetTable($Query, $DbED)
@@ -675,7 +814,6 @@ Func _CountMaterials()
 		_Execute($Query, $DbED)
 		If @error Then Return
 	Next
-	If $i > 1 Then _PopLVmaterials()
 EndFunc
 
 Func _CountCommodities()
@@ -684,7 +822,7 @@ Func _CountCommodities()
 
 	$Query = "SELECT MAX(timestamp), parsed FROM journal WHERE event = 'Died' "
 	$aResult = _GetTable($Query, $DbED)
-	If UBound($aResult) > 1 Then
+	If UBound($aResult) > 1 And $aResult[1][0] > 0 Then
 		$Died = $aResult[1][0]
 		$Query = ""
 		If $aResult[1][1] <> 1 Then
@@ -714,7 +852,6 @@ Func _CountCommodities()
 		$Query &= "UPDATE journal SET parsed = 1 WHERE filename = " & $aResult[$i][0] & " AND timestamp = " & $aResult[$i][1] & " AND content = " & _SQLite_Escape($aResult[$i][3]) & ";"
 		_Execute($Query, $DbED)
 	Next
-	If $i > 1 Then _PopLVmaterials()
 
 	$Query = "SELECT * FROM journal WHERE timestamp > " & $Died & " AND (event = 'MissionCompleted' AND content LIKE " & _SQLite_Escape('%Commodity%') & ") AND (parsed IS NULL OR parsed = " & $Debug & ")"
 	$aResult = _GetTable($Query, $DbED)
@@ -739,7 +876,6 @@ Func _CountCommodities()
 		$Query &= "UPDATE journal SET parsed = 1 WHERE filename = " & $aResult[$i][0] & " AND timestamp = " & $aResult[$i][1] & " AND content = " & _SQLite_Escape($aResult[$i][3]) & ";"
 		_Execute($Query, $DbED)
 	Next
-	If $i > 1 Then _PopLVmaterials()
 
 	$Query = "SELECT * FROM journal WHERE timestamp > " & $Died & " AND (event = 'MarketBuy' Or event = 'MarketSell') AND (parsed IS NULL OR parsed = " & $Debug & ")"
 	$aResult = _GetTable($Query, $DbED)
@@ -761,7 +897,6 @@ Func _CountCommodities()
 			_Execute($Query, $DbED)
 		EndIf
 	Next
-	If $i > 1 Then _PopLVmaterials()
 
 	$Query = "SELECT * FROM journal WHERE timestamp > " & $Died & " AND (event = 'CollectCargo' OR event = 'EjectCargo') AND (parsed IS NULL OR parsed = " & $Debug & ")"
 	$aResult = _GetTable($Query, $DbED)
@@ -784,8 +919,6 @@ Func _CountCommodities()
 			_Execute($Query, $DbED)
 		EndIf
 	Next
-	If $i > 1 Then _PopLVmaterials()
-	_DB(TimerDiff($TestTimer) & " ms")
 EndFunc
 
 Func _ParseJournal()
@@ -814,6 +947,14 @@ Func _ParseJournal()
 			If UBound($aResult) > 1 Then
 				$LastFileTimeString = $aResult[1][0]
 				$LastTimeStamp = $aResult[1][1]
+			EndIf
+
+			If $LastTimeStamp <= 0 Then
+				$User = _ExtMsgBox($EMB_ICONQUERY, "Yes|No", "Found " & UBound($aFiles)-1 & " Journal Files", "Parse Journal Files now?", 0, $Gui)
+				If $User = 2 Then
+					Return
+				EndIf
+				GUISetState(@SW_DISABLE, $Gui)
 			EndIf
 
 			For $i = 1 To UBound($aFiles)-1
@@ -904,6 +1045,10 @@ Func _ParseJournal()
 		If @error Then Return
 		_Execute($QueryInsert, $DbED)
 		_Execute("COMMIT;", $DbED)
+		_CountCommodities()
+		_CountMaterials()
+		_PopLVmaterials()
+		GUISetState(@SW_ENABLE, $Gui)
 		$DoCount = True
 	EndIf
 
@@ -981,9 +1126,6 @@ Func _Exit()
 		IniWrite($fIni, "WINPOS", "BLUW", $WinPos[2])
 		IniWrite($fIni, "WINPOS", "BLUH", $WinPos[3])
 	EndIf
-	IniWrite($fIni, "SETTINGS", "COMBOCAT", GUICtrlRead($ComboCat))
-	IniWrite($fIni, "SETTINGS", "COMBOMOD", GUICtrlRead($ComboMod))
-	IniWrite($fIni, "SETTINGS", "COMBOENG", GUICtrlRead($ComboEng))
 	_SQLite_Shutdown()
 	_GUICtrlListView_UnRegisterSortCallBack($lvMaterials)
 	_GUICtrlListView_UnRegisterSortCallBack($lvBlueprints)
@@ -1006,4 +1148,5 @@ Func _Execute($Query, $DB)
 		_DB(@ScriptLineNumber & " " & _SQLite_ErrMsg($DB))
 		SetError(1)
 	EndIf
+	Return $iRval = $SQLITE_OK
 EndFunc

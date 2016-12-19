@@ -1,8 +1,8 @@
 #include-once
 Global $g_hListView = 0, $SubItemClicked = 0
-
+Global $gEdit = False, $gValue = 0
 GUIRegisterMsg($WM_NOTIFY, "WM_NOTIFY")
-ConsoleWrite("Tools included" & @CRLF)
+
 
 Func WM_NOTIFY($hWnd, $iMsg, $wParam, $lParam)
 	#forceref $hWnd, $iMsg, $wParam
@@ -67,6 +67,8 @@ Func WM_NOTIFY($hWnd, $iMsg, $wParam, $lParam)
 				Case $LVN_ENDLABELEDITA, $LVN_ENDLABELEDITW ; The end of label editing for an item
 					$tInfo = DllStructCreate($tagNMLVDISPINFO, $lParam)
 					Local $tBuffer = DllStructCreate("char Text[" & DllStructGetData($tInfo, "TextMax") & "]", DllStructGetData($tInfo, "Text"))
+					$gEdit = DllStructGetData($tInfo, "Item")
+					$gValue = _GUICtrlListView_GetItemText($g_hListView, $gEdit)
 					_DebugPrint("$LVN_ENDLABELEDIT" & @CRLF & "--> hWndFrom:" & @TAB & $hWndFrom & @CRLF & _
 							"-->IDFrom:" & @TAB & $iIDFrom & @CRLF & _
 							"-->Code:" & @TAB & $iCode & @CRLF & _
@@ -85,7 +87,9 @@ Func WM_NOTIFY($hWnd, $iMsg, $wParam, $lParam)
 							"-->pColumns:" & @TAB & DllStructGetData($tInfo, "pColumns"))
 					; If Text is not empty, return True to set the item's label to the edited text, return false to reject it
 					; If Text is empty the return value is ignored
+
 					If StringLen(DllStructGetData($tBuffer, "Text")) Then Return True
+
 				Case $NM_CLICK ; Sent by a list-view control when the user clicks an item with the left mouse button
 					$tInfo = DllStructCreate($tagNMITEMACTIVATE, $lParam)
 					_DebugPrint("$NM_CLICK" & @CRLF & "--> hWndFrom:" & @TAB & $hWndFrom & @CRLF & _
@@ -117,6 +121,7 @@ Func WM_NOTIFY($hWnd, $iMsg, $wParam, $lParam)
 							"-->KeyFlags:" & @TAB & DllStructGetData($tInfo, "KeyFlags"))
 					; No return value
 				Case $NM_KILLFOCUS ; The control has lost the input focus
+
 					_DebugPrint("$NM_KILLFOCUS" & @CRLF & "--> hWndFrom:" & @TAB & $hWndFrom & @CRLF & _
 							"-->IDFrom:" & @TAB & $iIDFrom & @CRLF & _
 							"-->Code:" & @TAB & $iCode)
@@ -158,6 +163,7 @@ Func WM_NOTIFY($hWnd, $iMsg, $wParam, $lParam)
 							"-->Code:" & @TAB & $iCode)
 					; No return value
 				Case $NM_SETFOCUS ; The control has received the input focus
+					If $gEdit <> "" Then _EditItem($gEdit)
 					_DebugPrint("$NM_SETFOCUS" & @CRLF & "--> hWndFrom:" & @TAB & $hWndFrom & @CRLF & _
 							"-->IDFrom:" & @TAB & $iIDFrom & @CRLF & _
 							"-->Code:" & @TAB & $iCode)
@@ -166,6 +172,10 @@ Func WM_NOTIFY($hWnd, $iMsg, $wParam, $lParam)
 	EndSwitch
 	Return $GUI_RUNDEFMSG
 EndFunc   ;==>WM_NOTIFY
+
+Func _ItemEditEnd($Item)
+
+EndFunc
 
 Func _DebugPrint($s_Text, $sLine = @ScriptLineNumber)
 	Return
