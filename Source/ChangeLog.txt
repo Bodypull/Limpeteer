@@ -1,1 +1,5 @@
-v1.0.0 initial release
+v1.0.0.0 
+	initial release
+
+v1.0.1.0 
+	Added: Double click on list view item now opens inara web page

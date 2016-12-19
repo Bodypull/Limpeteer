@@ -1,7 +1,7 @@
 #Region ;**** Directives created by AutoIt3Wrapper_GUI ****
 #AutoIt3Wrapper_Icon=..\..\..\..\..\Program Files (x86)\AutoIt3\Aut2Exe\Icons\AutoIt_Main_v10_256x256_RGB-A.ico
 #AutoIt3Wrapper_Outfile=..\..\GitHub\Limpeteer\Source\Limpeteer.Exe
-#AutoIt3Wrapper_Res_Fileversion=1.0.0.0
+#AutoIt3Wrapper_Res_Fileversion=1.0.1.0
 #EndRegion ;**** Directives created by AutoIt3Wrapper_GUI ****
 #include <Date.au3>
 #include <GUIConstantsEx.au3>
@@ -96,7 +96,9 @@ $GuiBlueprints = GUICreate("Blueprints", IniRead($fIni, "WINPOS", "BLUW", 600), 
 $ClientSize = WinGetClientSize($GuiBlueprints)
 $lvBlueprints = GUICtrlCreateListView("", 0, 0, $ClientSize[0], $ClientSize[1], $LVS_REPORT, $LVS_EX_GRIDLINES+$LVS_EX_FULLROWSELECT)
 
-$g_hListView = $lvMaterials
+$g_hListViewMat = GUICtrlGetHandle($lvMaterials)
+$g_hListViewBP = GUICtrlGetHandle($lvBlueprints)
+
 _GUICtrlListView_RegisterSortCallBack($lvMaterials)
 _GUICtrlListView_RegisterSortCallBack($lvBlueprints)
 
@@ -161,6 +163,22 @@ While 1
 		EndIf
 	EndIf
 WEnd
+
+Func _ShowInara($Item, $hLV)
+	If $hLV = $g_hListViewMat Then
+		$Query = "SELECT inaraID FROM components WHERE name = " & _SQLite_Escape(_GUICtrlListView_GetItemText($lvMaterials, $Item, 1))
+		$aResult = _GetTable($Query, $DbED)
+		If UBound($aResult) > 1 And Number($aResult[1][0]) > 0 Then
+			ShellExecute("http://inara.cz/galaxy-component/" & $aResult[1][0])
+		EndIf
+	ElseIf $hLV = $g_hListViewBP Then
+		_DB("HERE")
+		If Number(_GUICtrlListView_GetItemText($lvBlueprints, $Item, 1)) > 0 Then
+			ShellExecute("http://inara.cz/galaxy-blueprint/" & _GUICtrlListView_GetItemText($lvBlueprints, $Item, 1))
+		EndIf
+	EndIf
+
+EndFunc
 
 Func _ExportCSV()
 	$File = FileSaveDialog("Export CSV", "::{450D8FBA-AD25-11D0-98A8-0800361B1103}" , "CSV (*.csv)",  $FD_PATHMUSTEXIST+ $FD_PROMPTOVERWRITE, "Limpeteer Export.csv", $Gui)
@@ -711,7 +729,6 @@ EndFunc
 Func _EditItem($Item)
 	$Input = _GUICtrlListView_GetItemText($lvMaterials, $Item)
 	If $Input = $gValue Then
-		_DB("No Change")
 		Return
 	EndIf
 	If Not StringIsDigit($Input) Then
