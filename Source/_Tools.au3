@@ -1,5 +1,7 @@
 #include-once
-Global $g_hListView = 0, $SubItemClicked = 0
+
+Global $g_hListViewMat
+Global $g_hListViewBP
 Global $gEdit = False, $gValue = 0
 GUIRegisterMsg($WM_NOTIFY, "WM_NOTIFY")
 
@@ -7,19 +9,16 @@ GUIRegisterMsg($WM_NOTIFY, "WM_NOTIFY")
 Func WM_NOTIFY($hWnd, $iMsg, $wParam, $lParam)
 	#forceref $hWnd, $iMsg, $wParam
 	Local $hWndFrom, $iIDFrom, $iCode, $tNMHDR, $hWndListView, $tInfo
-	$hWndListView = $g_hListView
-	If Not IsHWnd($g_hListView) Then $hWndListView = GUICtrlGetHandle($g_hListView)
 
 	$tNMHDR = DllStructCreate($tagNMHDR, $lParam)
 	$hWndFrom = HWnd(DllStructGetData($tNMHDR, "hWndFrom"))
 	$iIDFrom = DllStructGetData($tNMHDR, "IDFrom")
 	$iCode = DllStructGetData($tNMHDR, "Code")
 	Switch $hWndFrom
-		Case $hWndListView
+		Case $g_hListViewMat, $g_hListViewBP
 			Switch $iCode
 				Case $LVN_BEGINLABELEDITA, $LVN_BEGINLABELEDITW ; Start of label editing for an item
 					$tInfo = DllStructCreate($tagNMLVDISPINFO, $lParam)
-					$SubItemClicked = DllStructGetData($tInfo, "SubItem")
 					_DebugPrint("$LVN_BEGINLABELEDIT" & @CRLF & "--> hWndFrom:" & @TAB & $hWndFrom & @CRLF & _
 							"-->IDFrom:" & @TAB & $iIDFrom & @CRLF & _
 							"-->Code:" & @TAB & $iCode & @CRLF & _
@@ -67,8 +66,10 @@ Func WM_NOTIFY($hWnd, $iMsg, $wParam, $lParam)
 				Case $LVN_ENDLABELEDITA, $LVN_ENDLABELEDITW ; The end of label editing for an item
 					$tInfo = DllStructCreate($tagNMLVDISPINFO, $lParam)
 					Local $tBuffer = DllStructCreate("char Text[" & DllStructGetData($tInfo, "TextMax") & "]", DllStructGetData($tInfo, "Text"))
-					$gEdit = DllStructGetData($tInfo, "Item")
-					$gValue = _GUICtrlListView_GetItemText($g_hListView, $gEdit)
+					If $hWndFrom = $g_hListViewMat Then
+						$gEdit = DllStructGetData($tInfo, "Item")
+						$gValue = _GUICtrlListView_GetItemText($g_hListViewMat, $gEdit)
+					EndIf
 					_DebugPrint("$LVN_ENDLABELEDIT" & @CRLF & "--> hWndFrom:" & @TAB & $hWndFrom & @CRLF & _
 							"-->IDFrom:" & @TAB & $iIDFrom & @CRLF & _
 							"-->Code:" & @TAB & $iCode & @CRLF & _
@@ -107,6 +108,7 @@ Func WM_NOTIFY($hWnd, $iMsg, $wParam, $lParam)
 					; No return value
 				Case $NM_DBLCLK ; Sent by a list-view control when the user double-clicks an item with the left mouse button
 					$tInfo = DllStructCreate($tagNMITEMACTIVATE, $lParam)
+					_ShowInara(DllStructGetData($tInfo, "Index"), $hWndFrom)
 					_DebugPrint("$NM_DBLCLK" & @CRLF & "--> hWndFrom:" & @TAB & $hWndFrom & @CRLF & _
 							"-->IDFrom:" & @TAB & $iIDFrom & @CRLF & _
 							"-->Code:" & @TAB & $iCode & @CRLF & _
@@ -121,7 +123,6 @@ Func WM_NOTIFY($hWnd, $iMsg, $wParam, $lParam)
 							"-->KeyFlags:" & @TAB & DllStructGetData($tInfo, "KeyFlags"))
 					; No return value
 				Case $NM_KILLFOCUS ; The control has lost the input focus
-
 					_DebugPrint("$NM_KILLFOCUS" & @CRLF & "--> hWndFrom:" & @TAB & $hWndFrom & @CRLF & _
 							"-->IDFrom:" & @TAB & $iIDFrom & @CRLF & _
 							"-->Code:" & @TAB & $iCode)
@@ -173,9 +174,6 @@ Func WM_NOTIFY($hWnd, $iMsg, $wParam, $lParam)
 	Return $GUI_RUNDEFMSG
 EndFunc   ;==>WM_NOTIFY
 
-Func _ItemEditEnd($Item)
-
-EndFunc
 
 Func _DebugPrint($s_Text, $sLine = @ScriptLineNumber)
 	Return

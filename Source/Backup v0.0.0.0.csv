@@ -1,0 +1,130 @@
+Count ,Name                   ,Category   ,hide,Grade      ,Encoded Name 
+0,,,0,,atmosphericextractors
+0,,,0,,marinesupplies
+16,Aberrant Shield Pattern Analysis,Encoded,0,Rare,shieldpatternanalysis
+11,Abnormal Compact Emission Data,Encoded,1,Very rare,compactemissionsdata
+38,Anomalous Bulk Scan Data,Encoded,4,Very common,bulkscandata
+26,Anomalous FSD Telemetry,Encoded,1,Common,fsdtelemetry
+13,Arsenic,Raw,2,Standard,arsenic
+0,Articulation Motors,Commodity,15,Standard,ArticulationMotors
+3,Atypical Disrupted Wake Echoes,Encoded,3,Very common,disruptedwakeechoes
+1,Basic Conductors,Manufactured,0,Very common,basicconductors
+0,Basic Medicines,Medicines (Commodity),0,,basicmedicines
+2,Biotech Conductors,Manufactured,10,Very rare,biotechconductors
+3,Biowaste,Waste (Commodity),0,,biowaste
+0,Bromellite,Commodity,3,Standard,Bromellite
+0,Carbon,Raw,48,Very common,carbon
+30,Chemical Distillery,Manufactured,2,Standard,chemicaldistillery
+8,Chemical Manipulators,Manufactured,4,Rare,chemicalmanipulators
+44,Chemical Processors,Manufactured,3,Common,chemicalprocessors
+3,Chromium,Raw,16,Common,chromium
+28,Classified Scan Databanks,Encoded,0,Standard,scandatabanks
+3,Classified Scan Fragment,Encoded,1,Very rare,classifiedscandata
+0,Clothing,Consumer Items (Commodity),0,,clothing
+15,CMM Composite,Commodity,76,Standard,CMMComposite
+0,Cobalt,Metals (Commodity),0,,cobalt
+29,Compound Shielding,Manufactured,17,Rare,compoundshielding
+5,Conductive Ceramics,Manufactured,57,Standard,conductiveceramics
+29,Conductive Components,Manufactured,57,Common,conductivecomponents
+0,Conductive Fabrics,Textiles (Commodity),0,,conductivefabrics
+2,Conductive Polymers,Manufactured,20,Rare,conductivepolymers
+15,Configurable Components,Manufactured,13,Rare,configurablecomponents
+0,Consumer Technology,Consumer Items (Commodity),0,,consumertechnology
+9,Core Dynamics Composites,Manufactured,15,Very rare,fedcorecomposites
+6,Cracked Industrial Firmware,Encoded,16,Standard,industrialfirmware
+1,Crystal Shards,Manufactured,0,Very common,crystalshards
+1,Datamined Wake Exceptions,Encoded,1,Very rare,dataminedwake
+16,Decoded Emission Data,Encoded,1,Rare,decodedemissiondata
+18,Distorted Shield Cycle Recordings,Encoded,9,Very common,shieldcyclerecordings
+22,Divergent Scan Data,Encoded,1,Rare,encodedscandata
+0,Domestic Appliances,Consumer Items (Commodity),0,,domesticappliances
+10,Drones,,0,,drones
+6,Eccentric Hyperspace Trajectories,Encoded,2,Rare,hyperspacetrajectories
+8,Electrochemical Arrays,Manufactured,21,Standard,electrochemicalarrays
+0,Encrypted Data Storage,Salvage (Commodity),0,,encripteddatastorage
+24,Exceptional Scrambled Emission Data,Encoded,7,Very common,scrambledemissiondata
+2,Explosives,Chemicals (Commodity),0,,explosives
+3,Flawed Focus Crystals,Manufactured,0,Common,uncutfocuscrystals
+62,Focus Crystals,Manufactured,23,Standard,focuscrystals
+0,Galvanising Alloys,Manufactured,0,Common,galvanisingalloys
+18,Germanium,Raw,10,Common,germanium
+0,Gold,Metals (Commodity),0,,gold
+0,Grain,Foods (Commodity),0,,grain
+0,Grid Resistors,Manufactured,7,Very common,gridresistors
+6,Heat Conduction Wiring,Manufactured,8,Very common,heatconductionwiring
+15,Heat Dispersion Plate,Manufactured,20,Common,heatdispersionplate
+6,Heat Exchangers,Manufactured,11,Standard,heatexchangers
+1,Heat Resistant Ceramics,Manufactured,0,Common,heatresistantceramics
+18,High Density Composites,Manufactured,54,Standard,highdensitycomposites
+0,HN Shock Mount,Commodity,33,Standard,HNShockMount
+7,Hybrid Capacitors,Manufactured,5,Common,hybridcapacitors
+0,Hydrogen Fuel,Chemicals (Commodity),0,,hydrogenfuel
+0,Hydrogen Peroxide,Chemicals (Commodity),0,,hydrogenperoxide
+0,Imperial Slaves,Slavery (Commodity),0,,imperialslaves
+45,Inconsistent Shield Soak Analysis,Encoded,3,Common,shieldsoakanalysis
+0,Indite,Minerals (Commodity),0,,indite
+0,Insulating Membrane,Commodity,14,Standard,InsulatingMembrane
+37,Iron,Raw,23,Very common,iron
+12,Irregular Emission Data,Encoded,8,Common,archivedemissiondata
+0,Liquid Oxygen,Chemicals (Commodity),0,,liquidoxygen
+0,Lithium Hydroxide,Minerals (Commodity),0,,lithiumhydroxide
+0,Magnetic Emitter Coil,Commodity,59,Standard,magneticemittercoil
+3,Manganese,Raw,49,Common,manganese
+16,Mechanical Components,Manufactured,19,Standard,mechanicalcomponents
+37,Mechanical Equipment,Manufactured,19,Common,mechanicalequipment
+0,Mechanical Scrap,Manufactured,38,Very common,mechanicalscrap
+12,Mercury,Raw,2,Rare,mercury
+0,Meta-Alloys,Industrial Materials (Commodity),0,,metaalloys
+0,Methane Clathrate,Minerals (Commodity),0,,methaneclathrate
+0,Micro-Weave Cooling Hoses,Commodity,15,Standard,CoolingHoses
+0,Mineral Extractors,Machinery (Commodity),0,,mineralextractors
+26,Modified Consumer Firmware,Encoded,53,Common,consumerfirmware
+3,Modified Embedded Firmware,Encoded,6,Very rare,embeddedfirmware
+0,Modular Terminals,Commodity,6,Standard,ModularTerminals
+0,Nanobreakers,Commodity,14,Standard,Nanobreakers
+0,Neofabric Insulation,Commodity,15,Standard,NeofabricInsulation
+40,Nickel,Raw,114,Very common,nickel
+27,Niobium,Raw,13,Standard,niobium
+3,Open Symmetric Keys,Encoded,1,Standard,symmetrickeys
+1,Palladium,Metals (Commodity),0,,palladium
+10,Peculiar Shield Frequency Data,Encoded,0,Very rare,shieldfrequencydata
+27,Phase Alloys,Manufactured,23,Standard,phasealloys
+18,Phosphorus,Raw,30,Very common,phosphorus
+1,Platinum,Commodity,19,Standard,platinum
+0,Polymers,Industrial Materials (Commodity),0,,polymers
+0,Power Converter,Commodity,2,Standard,powerconverter
+44,Precipitated Alloys,Manufactured,15,Standard,precipitatedalloys
+6,Proprietary Composites,Manufactured,30,Rare,fedproprietarycomposites
+63,Proto Light Alloys,Manufactured,39,Rare,protolightalloys
+15,Proto Radiolic Alloys,Manufactured,16,Very rare,protoradiolicalloys
+0,Rare Artwork,Salvage (Commodity),0,,usscargorareartwork
+53,Refined Focus Crystals,Manufactured,7,Rare,refinedfocuscrystals
+0,Rutile,Minerals (Commodity),0,,rutile
+25,Salvaged Alloys,Manufactured,53,Very common,salvagedalloys
+5,Security Firmware Patch,Encoded,1,Rare,securityfirmware
+35,Shield Emitters,Manufactured,85,Common,shieldemitters
+36,Shielding Sensors,Manufactured,21,Standard,shieldingsensors
+0,Silver,Metals (Commodity),0,,silver
+0,Slaves,Slavery (Commodity),0,,slaves
+0,Specialised Legacy Firmware,Encoded,19,Very common,legacyfirmware
+3,Strange Wake Solutions,Encoded,2,Standard,wakesolutions
+24,Sulphur,Raw,44,Very common,sulphur
+0,Superconductors,Industrial Materials (Commodity),0,,superconductors
+0,Survival Equipment,Consumer Items (Commodity),0,,survivalequipment
+0,Synthetic Fabrics,Textiles (Commodity),0,,syntheticfabrics
+12,Tagged Encryption Codes,Encoded,2,Common,encryptioncodes
+0,Tea,Foods (Commodity),0,,tea
+0,Telemetry Suite,Commodity,11,Standard,TelemetrySuite
+12,Tin,Raw,9,Rare,tin
+9,Tungsten,Raw,62,Standard,tungsten
+22,Unexpected Emission Data,Encoded,7,Standard,emissiondata
+3,Unidentified Scan Archives,Encoded,0,Common,scanarchives
+56,Untypical Shield Scans,Encoded,3,Standard,shielddensityreports
+12,Unusual Encrypted Files,Encoded,2,Very common,encryptedfiles
+18,Vanadium,Raw,46,Common,vanadium
+0,Water,Chemicals (Commodity),0,,water
+0,Wine,Legal Drugs (Commodity),0,,wine
+0,Worn Shield Emitters,Manufactured,17,Very common,wornshieldemitters
+6,Yttrium,Raw,0,Rare,yttrium
+12,Zinc,Raw,32,Common,zinc
+6,Zirconium,Raw,8,Standard,zirconium

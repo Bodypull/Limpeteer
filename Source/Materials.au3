@@ -1,7 +1,7 @@
 #Region ;**** Directives created by AutoIt3Wrapper_GUI ****
 #AutoIt3Wrapper_Icon=..\..\..\..\..\..\Program Files (x86)\AutoIt3\Aut2Exe\Icons\AutoIt_Main_v10_256x256_RGB-A.ico
 #AutoIt3Wrapper_Outfile=Limpeteer.Exe
-#AutoIt3Wrapper_Res_Fileversion=1.0.4.0
+#AutoIt3Wrapper_Res_Fileversion=1.0.5.0
 #EndRegion ;**** Directives created by AutoIt3Wrapper_GUI ****
 #include <Date.au3>
 #include <GUIConstantsEx.au3>
@@ -37,10 +37,14 @@ Global $TimerCheckJournal
 Global $LastFilePointer = -1
 Global $LastFileTimeString = -1
 Global $LastTimeStamp = -1
+Global $LastContent = -1
 Global $WatchFile = -1
-Global $sKeppEvents = "CollectCargo,Died,EjectCargo,EngineerCraft,MarketBuy,MarketSell,MaterialCollected,MaterialDiscarded,MiningRefined,MissionAccepted,MissionCompleted,Synthesis"
+Global $sKeppEvents = "BuyDrones,CollectCargo,Died,EjectCargo,EngineerCraft,MarketBuy,MarketSell,MaterialCollected,MaterialDiscarded,MiningRefined,MissionAccepted,MissionCompleted,SellDrones,Synthesis"
 Global $fIni = @ScriptDir & "\settings.ini"
 Global $Path = IniRead($fIni, "PATH", "JOURNAL", @UserProfileDir & "\Saved Games\Frontier Developments\Elite Dangerous\")
+Global $ParseCommmodities = IniRead($fIni, "SETTINGS", "Parse Commodities", 0)
+
+IniWrite($fIni, "SETTINGS", "Parse Commodities", $ParseCommmodities)
 
 $Gui = GUICreate("Limpeteer", 400, 370, IniRead($fIni, "WINPOS", "GUIX", -1), IniRead($fIni, "WINPOS", "GUIY", -1))
 $WinPos = WinGetPos($Gui)
@@ -55,6 +59,17 @@ GUICtrlCreateMenuItem("", $MenuFile)
 $MenuFileClose = GUICtrlCreateMenuItem("Exit", $MenuFile)
 $MenuView = GUICtrlCreateMenu("View")
 $MenuViewMaterials = GUICtrlCreateMenuItem("Show Materials", $MenuView)
+
+$MenuSetting = GUICtrlCreateMenu("Settings")
+$MenuSettingsShowZeros = GUICtrlCreateMenuItem("List Zero Counts", $MenuSetting)
+If IniRead($fIni, "SETTINGS", "Show Zeros", 0) = 1 Then
+	GUICtrlSetState($MenuSettingsShowZeros, $GUI_CHECKED)
+EndIf
+$MenuSettingsParseCommodities = GUICtrlCreateMenuItem("Parse Commodities", $MenuSetting)
+If $ParseCommmodities = 1 Then
+	GUICtrlSetState($MenuSettingsParseCommodities, $GUI_CHECKED)
+EndIf
+
 $MenuHelp = GUICtrlCreateMenu("Help")
 $MenuHelpAbout = GUICtrlCreateMenuItem("About", $MenuHelp)
 
@@ -142,6 +157,23 @@ While 1
 			EndIf
 		Case $MenuFileExport
 			_ExportCSV()
+		Case $MenuSettingsShowZeros
+			If BitAND(GUICtrlRead($MenuSettingsShowZeros), $GUI_CHECKED) = $GUI_CHECKED Then
+				GUICtrlSetState($MenuSettingsShowZeros, $GUI_UNCHECKED)
+			Else
+				GUICtrlSetState($MenuSettingsShowZeros, $GUI_CHECKED)
+			EndIf
+			_PopLVmaterials()
+		Case $MenuSettingsParseCommodities
+			If BitAND(GUICtrlRead($MenuSettingsParseCommodities), $GUI_CHECKED) = $GUI_CHECKED Then
+				GUICtrlSetState($MenuSettingsParseCommodities, $GUI_UNCHECKED)
+				$ParseCommmodities = 0
+			Else
+				GUICtrlSetState($MenuSettingsParseCommodities, $GUI_CHECKED)
+				$ParseCommmodities = 1
+				_CountCommodities()
+			EndIf
+			_PopLVmaterials()
 	EndSwitch
 
 	If TimerDiff($TimerCheckJournal) > 500 Then
@@ -164,56 +196,96 @@ WEnd
 
 Func _ShowInara($Item, $hLV)
 	If $hLV = $g_hListViewMat Then
+		_DB("HERE")
 		$Query = "SELECT inaraID FROM components WHERE name = " & _SQLite_Escape(_GUICtrlListView_GetItemText($lvMaterials, $Item, 1))
 		$aResult = _GetTable($Query, $DbED)
 		If UBound($aResult) > 1 And Number($aResult[1][0]) > 0 Then
 			ShellExecute("http://inara.cz/galaxy-component/" & $aResult[1][0])
 		EndIf
 	ElseIf $hLV = $g_hListViewBP Then
-		_DB("HERE")
 		If Number(_GUICtrlListView_GetItemText($lvBlueprints, $Item, 1)) > 0 Then
 			ShellExecute("http://inara.cz/galaxy-blueprint/" & _GUICtrlListView_GetItemText($lvBlueprints, $Item, 1))
 		EndIf
 	EndIf
 EndFunc
 
-Func _ExportCSV()
-	$File = FileSaveDialog("Export CSV", "::{450D8FBA-AD25-11D0-98A8-0800361B1103}" , "CSV (*.csv)",  $FD_PATHMUSTEXIST+ $FD_PROMPTOVERWRITE, "Limpeteer Export.csv", $Gui)
-	If @error Then Return
+Func _EditItem($Item)
+	$Input = _GUICtrlListView_GetItemText($lvMaterials, $Item)
+	If $Input = $gValue Then
+		Return
+	EndIf
+	If Not StringIsDigit($Input) Then
+		_DB($Input & " Only Digits accepted", 1)
+		_GUICtrlListView_SetItemText($lvMaterials, $Item, $gValue)
+		Return
+	Else
+		If _GUICtrlListView_GetItemGroupID($lvMaterials, $Item) = 1 Then
+			$Query = "UPDATE cargo "
+		Else
+			$Query = "UPDATE materials "
+		EndIf
+		$Query &= "SET count = " & $Input & " WHERE LOWER(name) = " & _SQLite_Escape(StringLower(_GUICtrlListView_GetItemText($lvMaterials, $Item, 5)))
+		_Execute($Query, $DbED)
+		If @error Then
+			_DB("Update failed", 1)
+		Else
+			_DB($gValue &  " --> " & $Input & " " & _GUICtrlListView_GetItemText($lvMaterials, $Item, 1) & " (" & _GUICtrlListView_GetItemText($lvMaterials, $Item, 5) & ")", 1)
+			_ExportCSV(False)
+		EndIf
+	EndIf
+	$gEdit = ""
+EndFunc
+
+Func _ExportCSV($User=True)
+	If $User Then
+		$File = FileSaveDialog("Export CSV", "::{450D8FBA-AD25-11D0-98A8-0800361B1103}" , "CSV (*.csv)",  $FD_PATHMUSTEXIST+ $FD_PROMPTOVERWRITE, "Limpeteer Export.csv", $Gui)
+		If @error Then Return
+	Else
+		$File = @ScriptDir & "\" & "Backup v" & FileGetVersion(@ScriptFullPath) & ".csv"
+	EndIf
+
 	$Query = ""
 	$Query &= "SELECT "
-	$Query &= "count AS 'Count', "
-	$Query &= "clearNames.clearName AS 'Name', "
-	$Query &= "category AS 'Category', "
-	$Query &= "COUNT(blueprintID) AS 'Used', "
-	$Query &= "components.grade AS 'Grade', "
-	$Query &= "materials.name AS 'Encoded Name' "
+	$Query &= "count AS 'Count ', "
+	$Query &= "CASE WHEN clearNames.clearName IS NOT NULL THEN clearNames.clearName ELSE components.name END AS 'Name                   ', "
+	$Query &= "category AS 'Category   ', "
+	$Query &= "COUNT(blueprintID) AS 'hide', "
+	$Query &= "components.grade AS 'Grade      ', "
+	$Query &= "materials.name AS 'Encoded Name ' "
 	$Query &= "FROM materials "
 	$Query &= "LEFT JOIN clearNames ON LOWER(clearNames.name) = LOWER(materials.name) "
-	$Query &= "LEFT JOIN components ON clearNames.clearName = components.name "
+	$Query &= "LEFT JOIN components ON clearNames.clearName = components.name OR LOWER(REPLACE(components.name, ' ', '')) = LOWER(materials.name) "
 	$Query &= "LEFT JOIN ingredients ON ingredients.component = components.inaraID "
-	$Query &= "WHERE count <> 0 "
+	$Query &= "WHERE count >= 0 "
 	$Query &= "GROUP BY materials.name "
 
-	$Query &= "UNION ALL "
+	If $ParseCommmodities > 0 Then
+		$Query &= "UNION ALL "
 
-	$Query &= "SELECT "
-	$Query &= "count AS 'Count', "
-	$Query &= "commodities.name AS 'Name', "
-	$Query &= "'Commodity' AS 'Category', "
-	$Query &= "COUNT(blueprintID) AS 'Used', "
-	$Query &= "components.grade AS 'Grade', "
-	$Query &= "cargo.name AS 'Encoded Name' "
-	$Query &= "FROM cargo "
-	$Query &= "LEFT JOIN commodities ON cargo.name = REPLACE(LOWER(commodities.name), ' ', '') "
-	$Query &= "LEFT JOIN components ON components.name = commodities.name "
-	$Query &= "LEFT JOIN ingredients ON ingredients.component = components.inaraID "
-	$Query &= "WHERE count <> 0 "
-	$Query &= "GROUP BY cargo.name "
-	$Query &= "ORDER BY commodities.name ASC "
+		$Query &= "SELECT "
+		$Query &= "count AS 'Count ', "
+		$Query &= "CASE WHEN clearNames.clearName IS NOT NULL THEN clearNames.clearName ELSE CASE WHEN components.name IS NOT NULL THEN components.name ELSE commodities.name END END AS 'Name                   ', "
+		$Query &= "CASE WHEN components.type IS NOT NULL THEN components.type ELSE commodities.cat_name || ' (Commodity)' END AS 'Category      ', "
+		$Query &= "COUNT(blueprintID) AS 'hide', "
+		$Query &= "CASE WHEN components.grade IS NOT NULL THEN components.grade ELSE '' END AS 'Grade     ', "
+		$Query &= "cargo.name AS 'Encoded Name ' "
+		$Query &= "FROM cargo "
+		$Query &= "LEFT JOIN clearNames ON LOWER(clearNames.name) = LOWER(cargo.name) "
+		$Query &= "LEFT JOIN components ON clearNames.clearName = components.name OR LOWER(REPLACE(components.name, ' ', '')) = LOWER(cargo.name) "
+		$Query &= "LEFT JOIN commodities ON clearNames.clearName = commodities.name OR LOWER(REPLACE(commodities.name, ' ', '')) = LOWER(cargo.name) "
+		$Query &= "LEFT JOIN ingredients ON ingredients.component = components.inaraID "
+		$Query &= "WHERE count >= 0 "
+		$Query &= "GROUP BY cargo.name "
+	EndIf
 
 	$aResult = _GetTable($Query, $DbED)
-	If @error Then Return
+	If @error Then
+		_DB(_SQLite_ErrMsg($DbED), 1)
+		Return
+	EndIf
+
+	_ArraySort($aResult, 0, 1, 0, 1)
+
 	$sCSV = ""
 	For $i = 0 To UBound($aResult)-1
 		For $j = 0 To UBound($aResult, 2)-1
@@ -224,7 +296,7 @@ Func _ExportCSV()
 	Next
 	$hFile = FileOpen($File, $FO_OVERWRITE)
 	If FileWrite($hFile, $sCSV) = 1 Then
-		_DB(UBound($aResult)-2 & " Entries exported", 1)
+		If $User Then _DB(UBound($aResult)-2 & " Entries exported", 1)
 	Else
 		_DB("Failed to write to " & $File, 1)
 	EndIf
@@ -618,44 +690,52 @@ Func _PopLVmaterials()
 	$Query = ""
 	$Query &= "SELECT "
 	$Query &= "count AS 'Count ', "
-	$Query &= "clearNames.clearName AS 'Name                   ', "
+	$Query &= "CASE WHEN clearNames.clearName IS NOT NULL THEN clearNames.clearName ELSE components.name END AS 'Name                   ', "
 	$Query &= "category AS 'Category   ', "
 	$Query &= "COUNT(blueprintID) AS 'hide', "
 	$Query &= "components.grade AS 'Grade      ', "
 	$Query &= "materials.name AS 'Encoded Name ' "
 	$Query &= "FROM materials "
 	$Query &= "LEFT JOIN clearNames ON LOWER(clearNames.name) = LOWER(materials.name) "
-	$Query &= "LEFT JOIN components ON clearNames.clearName = components.name "
+	$Query &= "LEFT JOIN components ON clearNames.clearName = components.name OR LOWER(REPLACE(components.name, ' ', '')) = LOWER(materials.name) "
 	$Query &= "LEFT JOIN ingredients ON ingredients.component = components.inaraID "
-	$Query &= "WHERE count <> 0 "
+	If BitAND(GUICtrlRead($MenuSettingsShowZeros), $GUI_CHECKED) <> $GUI_CHECKED Then
+		$Query &= "WHERE count <> 0 "
+	EndIf
 	$Query &= "GROUP BY materials.name "
 
-	$Query &= "UNION ALL "
-
-	$Query &= "SELECT "
-	$Query &= "count AS 'Count ', "
-	$Query &= "commodities.name AS 'Name                   ', "
-	$Query &= "'Commodity' AS 'Category      ', "
-	$Query &= "COUNT(blueprintID) AS 'hide', "
-	$Query &= "components.grade AS 'Grade     ', "
-	$Query &= "cargo.name AS 'Encoded Name ' "
-	$Query &= "FROM cargo "
-	$Query &= "LEFT JOIN commodities ON cargo.name = REPLACE(LOWER(commodities.name), ' ', '') "
-	$Query &= "LEFT JOIN components ON components.name = commodities.name "
-	$Query &= "LEFT JOIN ingredients ON ingredients.component = components.inaraID "
-	$Query &= "WHERE count <> 0 "
-	$Query &= "GROUP BY cargo.name "
-	$Query &= "ORDER BY commodities.name ASC "
+	If $ParseCommmodities > 0 Then
+		$Query &= "UNION ALL "
+		$Query &= "SELECT "
+		$Query &= "count AS 'Count ', "
+		$Query &= "CASE WHEN clearNames.clearName IS NOT NULL THEN clearNames.clearName ELSE CASE WHEN components.name IS NOT NULL THEN components.name ELSE commodities.name END END AS cName, "
+		$Query &= "CASE WHEN components.type IS NOT NULL THEN components.type ELSE commodities.cat_name || ' (Commodity)' END AS 'Category      ', "
+		$Query &= "COUNT(blueprintID) AS 'hide', "
+		$Query &= "CASE WHEN components.grade IS NOT NULL THEN components.grade ELSE '' END AS 'Grade     ', "
+		$Query &= "cargo.name AS 'Encoded Name ' "
+		$Query &= "FROM cargo "
+		$Query &= "LEFT JOIN clearNames ON LOWER(clearNames.name) = LOWER(cargo.name) "
+		$Query &= "LEFT JOIN components ON clearNames.clearName = components.name OR LOWER(REPLACE(components.name, ' ', '')) = LOWER(cargo.name) "
+		$Query &= "LEFT JOIN commodities ON clearNames.clearName = commodities.name OR LOWER(REPLACE(commodities.name, ' ', '')) = LOWER(cargo.name) "
+		$Query &= "LEFT JOIN ingredients ON ingredients.component = components.inaraID "
+		If BitAND(GUICtrlRead($MenuSettingsShowZeros), $GUI_CHECKED) <> $GUI_CHECKED Then
+			$Query &= "WHERE count <> 0 "
+		EndIf
+		$Query &= "GROUP BY cargo.name "
+		$Query &= "HAVING cName IN (SELECT name FROM components) "
+	EndIf
 
 	$aArray = _GetTable($Query, $DbED)
+
 	If @error Then Return
 
+	_ArraySort($aArray, 0, 1, 0, 1)
 	_GUICtrlListView_BeginUpdate($lvMaterials)
 
-	Dim $aGroupInfo[5] = ["", "Cargohold", "Materials", "Data", "Data / Materials Not Used By Engineers"]
+	Dim $aGroupInfo[5] = ["", "Engineering Commodities", "Materials", "Data", "Data / Materials Not Used By Engineers"]
 	If _GUICtrlListView_GetGroupCount($lvMaterials) = 0 Then
 		_GUICtrlListView_EnableGroupView($lvMaterials)
-		$Align = 1
+		$Align = 0
 		For $i = 1 To UBound($aGroupInfo)-1
 			_GUICtrlListView_InsertGroup($lvMaterials, -1, $i, $aGroupInfo[$i], $Align)
 			_GUICtrlListView_SetGroupInfo($lvMaterials, $i, $aGroupInfo[$i], $Align, $LVGS_COLLAPSIBLE)
@@ -693,6 +773,8 @@ Func _PopLVmaterials()
 
 	$Materials = 0
 	$Data = 0
+	$Cargo = 0
+
 	For $i = 1 To UBound($aArray)-1
 		For $j = 0 To UBound($aArray, 2)-1
 			$aItem = _GUICtrlListView_GetItem($lvMaterials, $i-1, $j)
@@ -706,46 +788,29 @@ Func _PopLVmaterials()
 				_GUICtrlListView_SetItemText($lvMaterials, $i-1, $aArray[$i][$j], $j)
 			EndIf
 		Next
-		If $aArray[$i][2] = "Commodity" Then
+		If StringInStr($aArray[$i][2], "Commodity") Or $aArray[$i][1] = "Drones" Then
+			$Cargo += $aArray[$i][0]
 			_GUICtrlListView_SetItemGroupID($lvMaterials, $i-1, 1)
 		ElseIf $aArray[$i][3] = 0 Then
+			If $aArray[$i][2] = "Encoded" Then
+				$Data += $aArray[$i][0]
+			Else
+				$Materials += $aArray[$i][0]
+			EndIf
 			_GUICtrlListView_SetItemGroupID($lvMaterials, $i-1, 4)
 		ElseIf $aArray[$i][2] = "Encoded" Then
+			$Data += $aArray[$i][0]
 			_GUICtrlListView_SetItemGroupID($lvMaterials, $i-1, 3)
 		Else
 			_GUICtrlListView_SetItemGroupID($lvMaterials, $i-1, 2)
-		EndIf
-		If $aArray[$i][2] = "Encoded" Then
-			$Data += $aArray[$i][0]
-		ElseIf $aArray[$i][2] <> "Commodity" Then
 			$Materials += $aArray[$i][0]
 		EndIf
 	Next
+
 	_GUICtrlListView_EndUpdate($lvMaterials)
 	$sTitle = "Data (" & $Data & ") - Materials (" & $Materials & ")"
 	If WinGetTitle($GuiMaterials) <> $sTitle Then WinSetTitle($GuiMaterials, "", $sTitle)
 	If UBound($aArray) > 1 Then GUISetState(@SW_SHOW, $GuiMaterials)
-EndFunc
-
-Func _EditItem($Item)
-	$Input = _GUICtrlListView_GetItemText($lvMaterials, $Item)
-	If $Input = $gValue Then
-		Return
-	EndIf
-	If Not StringIsDigit($Input) Then
-		_DB($Input & " Only Digits accepted", 1)
-		_GUICtrlListView_SetItemText($lvMaterials, $Item, $gValue)
-		Return
-	Else
-		If _GUICtrlListView_GetItemGroupID($lvMaterials, $Item) = 1 Then
-			$Query = "UPDATE cargo "
-		Else
-			$Query = "UPDATE materials "
-		EndIf
-		$Query &= "SET count = " & $Input & " WHERE LOWER(name) = " & _SQLite_Escape(StringLower(_GUICtrlListView_GetItemText($lvMaterials, $Item, 5)))
-		_DB("Changed " & $gValue &  " to " & $Input & " for " & _GUICtrlListView_GetItemText($lvMaterials, $Item, 1) & " Encoded: " & _GUICtrlListView_GetItemText($lvMaterials, $Item, 5), 1)
-		_Execute($Query, $DbED)
-	EndIf
 EndFunc
 
 Func _ResetDB()
@@ -754,7 +819,7 @@ Func _ResetDB()
 		$Query = ""
 		$Query &= "DELETE FROM journal; " & @CRLF
 		$Query &= "UPDATE materials SET count = 0; " & @CRLF
-		$Query &= "UPDATE parser SET fileTimeString = 0, timeStamp = 0; " & @CRLF
+		$Query &= "UPDATE parser SET fileTimeString = 0, timeStamp = 0, event = '', content = ''; " & @CRLF
 		$Query &= "UPDATE cargo SET count = 0; " & @CRLF
 		_Execute($Query, $DbED)
 		_Execute("VACUUM", $DbED)
@@ -770,71 +835,89 @@ Func _ResetDB()
 EndFunc
 
 Func _CountMaterials()
-	$Debug = 0
-	$Query = "SELECT * FROM journal WHERE (event = 'MaterialCollected' OR event = 'MaterialDiscarded') AND (parsed IS NULL OR parsed = " & $Debug & ") "
+	$Query = "SELECT MAX(timestamp), parsed FROM journal WHERE event = 'Died' "
 	$aResult = _GetTable($Query, $DbED)
+	If UBound($aResult) > 1 And $aResult[1][0] > 0 Then
+		$Died = $aResult[1][0]
+	Else
+		$Died = 0
+	EndIf
+
+	$Query = ""
+	$Debug = 0
+
+	$pQuery = "SELECT * FROM journal WHERE (event = 'MaterialCollected' OR event = 'MaterialDiscarded') AND (parsed IS NULL OR parsed = " & $Debug & ") "
+	$aResult = _GetTable($pQuery, $DbED)
 	For $i = 1 To UBound($aResult)-1
 		_SB("Update Material Collected / Discarded " & $i & " of " & UBound($aResult)-1)
 		$aName = StringRegExp($aResult[$i][3], '(?:Name":")((?U).+)(?:")', 3)
 		$aCat = StringRegExp($aResult[$i][3], '(?:Category":")((?U).+)(?:")', 3)
 		$aCount = StringRegExp($aResult[$i][3], '(?:Count":)(\d+)', 3)
-		If UBound($aName) = 1 Then
-			$DoPop = True
+		If UBound($aName) = 1 And UBound($aCat) = 1 And UBound($aCount) = 1 Then
 			If $aResult[$i][2] = "MaterialDiscarded" Then
 				_DB("Discarded: " & $aCount[0] & " x " & $aName[0], 1)
 				$aCount[0] *= -1
 			Else
 				_DB("Collected: " & $aCount[0] & " x " & $aName[0], 1)
 			EndIf
-			$Query = "INSERT OR IGNORE INTO materials VALUES (" & _SQLite_Escape($aName[0]) & ", " & _SQLite_Escape($aCat[0]) & ", 0);"
-			_Execute($Query, $DbED)
-			If @error Then Return
-			$Query = "UPDATE materials SET count = count + " & $aCount[0] & " WHERE name = " & _SQLite_Escape($aName[0]) & ";"
-			$Query &= "UPDATE journal SET parsed = 1 WHERE filename = " & $aResult[$i][0] & " AND timestamp = " & $aResult[$i][1] & " AND content = " & _SQLite_Escape($aResult[$i][3]) & ";"
-			_Execute($Query, $DbED)
-			If @error Then Return
+			$Query &= "INSERT OR IGNORE INTO materials VALUES (" & _SQLite_Escape($aName[0]) & ", " & _SQLite_Escape($aCat[0]) & ", 0);" & @CRLF
+			$Query &= "UPDATE materials SET count = count + " & $aCount[0] & " WHERE LOWER(name) = " & _SQLite_Escape(StringLower($aName[0])) & ";" & @CRLF
 		EndIf
+		$Query &= "UPDATE journal SET parsed = 1 WHERE filename = " & $aResult[$i][0] & " AND timestamp = " & $aResult[$i][1] & " AND content = " & _SQLite_Escape($aResult[$i][3]) & ";" & @CRLF
 	Next
 
-	$Query = "SELECT * FROM journal WHERE event = 'EngineerCraft' AND (parsed IS NULL OR parsed = " & $Debug & ")"
-	$aResult = _GetTable($Query, $DbED)
+	$pQuery = "SELECT * FROM journal WHERE event = 'EngineerCraft' AND (parsed IS NULL OR parsed = " & $Debug & ")"
+	$aResult = _GetTable($pQuery, $DbED)
 	For $i = 1 To UBound($aResult)-1
-		$DoPop = True
 		_SB("Update Materials used by Engineers " & $i & " of " & UBound($aResult)-1)
 		$aIngredients = StringRegExp($aResult[$i][3], '(?:"Ingredients":\x7B)((?U).+)(?:\x7D)', 3)
-		$aUsed = StringRegExp($aIngredients[0], '(?:")((?U).+)(?:")', 3)
-		$Query = ""
-		For $j = 0 To UBound($aUsed)-1
-			$Query &= "UPDATE materials SET count = count - 1 WHERE name = " & _SQLite_Escape($aUsed[$j]) & ";" & @CRLF
-			$Query &= "UPDATE cargo SET count = count - 1 WHERE count > 0 AND name = " & _SQLite_Escape(StringLower($aUsed[$j])) & ";" & @CRLF
-			_DB("Engineer used: " & 1 & " x " & $aUsed[$j], 1)
-		Next
-		$Query &= "UPDATE journal SET parsed = 1 WHERE filename = " & $aResult[$i][0] & " AND timestamp = " & $aResult[$i][1] & " AND content = " & _SQLite_Escape($aResult[$i][3]) & ";"
-		_Execute($Query, $DbED)
-		If @error Then Return
-	Next
-	If $i > 1 Then _PopLVmaterials()
+		If UBound($aIngredients) = 1 Then
+			$sUsed = "Engineer used: "
+			$aUsed = StringRegExp($aIngredients[0], '(?:")((?U).+)(?:")', 3)
 
-	$Query = "SELECT * FROM journal WHERE event = 'Synthesis' AND (parsed IS NULL OR parsed = " & $Debug & ")"
-	$aResult = _GetTable($Query, $DbED)
+			For $j = 0 To UBound($aUsed)-1
+				$Query &= "UPDATE materials SET count = count - 1 WHERE LOWER(name) = " & _SQLite_Escape(StringLower($aUsed[$j])) & ";" & @CRLF
+				If $aResult[$i][1] > $Died Then
+					$Query &= "UPDATE cargo SET count = count - 1 WHERE LOWER(name) = " & _SQLite_Escape(StringLower($aUsed[$j])) & ";" & @CRLF
+				EndIf
+				$sUsed &= " 1 x " & $aUsed[$j] & "  "
+			Next
+			_DB($sUsed, 1)
+;~ 			If UBound($aUsed) > 1 Then
+;~ 				_DB($Query)
+;~ 				_ArrayDisplay($aUsed)
+;~ 			EndIf
+		EndIf
+		$Query &= "UPDATE journal SET parsed = 1 WHERE filename = " & $aResult[$i][0] & " AND timestamp = " & $aResult[$i][1] & " AND content = " & _SQLite_Escape($aResult[$i][3]) & ";" & @CRLF
+	Next
+
+	$pQuery = "SELECT * FROM journal WHERE event = 'Synthesis' AND (parsed IS NULL OR parsed = " & $Debug & ")"
+	$aResult = _GetTable($pQuery, $DbED)
 	For $i = 1 To UBound($aResult)-1
-		$DoPop = True
 		_SB("Update Materials used by Synthesis " & $i & " of " & UBound($aResult)-1)
 		$aIngredients = StringRegExp($aResult[$i][3], '(?:"Materials":\x7B)((?U).+)(?:\x7D)', 3)
-		$aUsed = StringRegExp($aIngredients[0], '(?:")((?U).+)(?:")', 3)
-		$aCount = StringRegExp($aIngredients[0], '(?:":)(\d)', 3)
-		$Query = ""
-		For $j = 0 To UBound($aUsed)-1
-			$Query &= "UPDATE materials SET count = count - " & $aCount[$j] & " WHERE name = " & _SQLite_Escape($aUsed[$j]) & ";" & @CRLF
-			_DB("Synthesis used: " & $aCount[$j] & " x " & $aUsed[$j], 1)
-		Next
-		$Query &= "UPDATE journal SET parsed = 1 WHERE filename = " & $aResult[$i][0] & " AND timestamp = " & $aResult[$i][1] & " AND content = " & _SQLite_Escape($aResult[$i][3]) & ";"
-		_Execute($Query, $DbED)
-		If @error Then Return
+		If UBound($aIngredients) = 1 Then
+			$aUsed = StringRegExp($aIngredients[0], '(?:")((?U).+)(?:")', 3)
+			$aCount = StringRegExp($aIngredients[0], '(?:":)(\d)', 3)
+			For $j = 0 To UBound($aUsed)-1
+				If UBound($aCount) > $j Then
+					$Query &= "UPDATE materials SET count = count - " & $aCount[$j] & " WHERE LOWER(name) = " & _SQLite_Escape(StringLower($aUsed[$j])) & ";" & @CRLF
+					_DB("Synthesis used: " & $aCount[$j] & " x " & $aUsed[$j], 1)
+				EndIf
+			Next
+		EndIf
+		$Query &= "UPDATE journal SET parsed = 1 WHERE filename = " & $aResult[$i][0] & " AND timestamp = " & $aResult[$i][1] & " AND content = " & _SQLite_Escape($aResult[$i][3]) & ";" & @CRLF
 	Next
+
+	If $Query <> "" Then
+		_Execute("BEGIN;", $DbED)
+		_Execute($Query, $DbED)
+		_Execute("COMMIT;", $DbED)
+	EndIf
 EndFunc
 
 Func _CountCommodities()
+	If $ParseCommmodities = 0 Then Return
 	$TestTimer = TimerInit()
 	$Debug = 0
 
@@ -844,120 +927,125 @@ Func _CountCommodities()
 		$Died = $aResult[1][0]
 		$Query = ""
 		If $aResult[1][1] <> 1 Then
-			$Query &= "UPDATE cargo SET count = 0; "
+			$Query &= "UPDATE cargo SET count = 0 WHERE count > 0; "
 		EndIf
 		$Query &= "UPDATE journal SET parsed = 1 WHERE event = 'Died' AND timestamp = " & $Died & ";"
 		_Execute($Query, $DbED)
 	Else
 		$Died = 0
 	EndIf
-;~ 	$Query = "SELECT * FROM journal WHERE timestamp > " & $Died & " AND (event = 'MissionAccepted' AND content LIKE " & _SQLite_Escape('%"Commodity":"$%') & ") AND (parsed IS NULL OR parsed = " & $Debug & ")"
-;~ 	$aResult = _GetTable($Query, $DbED)
-;~ 	$Query = ""
-;~ 	For $i = 1 To UBound($aResult)-1
-;~ 		_SB("Update Commodity Mission accepted " & $i & " / " & UBound($aResult)-1)
-;~ 		_DB("Parsing " & $aResult[$i][3], 1)
-;~ 		$aCommHaulage = StringRegExp($aResult[$i][3], '(?:"Commodity":"\x24)((?U).+)(?:_Name)', 3)
-;~ 		If UBound($aCommHaulage) = 1 Then
-;~ 			$aCount = StringRegExp($aResult[$i][3], '(?:"Count":)(\d+)', 3)
-;~ 			If Not UBound($aCount) > 0 Then
-;~ 				_DB("ERROR - Cannot get count on Commodity Mission accepted " & $aResult[$i][3], 1)
-;~ 				FileWrite(@ScriptDir & "\Error.log", "ERROR - Cannot get count on Haulage " & $aResult[$i][3] & @CRLF)
-;~ 				ContinueLoop
-;~ 			EndIf
-;~ 			$aId = StringRegExp($aResult[$i][3], '(?:"MissionID":)(\d+)', 3)
-;~ 			If Not UBound($aId) > 0 Then
-;~ 				_DB("ERROR - Cannot get id on Commodity Mission accepted " & $aResult[$i][3], 1)
-;~ 				FileWrite(@ScriptDir & "\Error.log", "ERROR - Cannot get count on Haulage " & $aResult[$i][3] & @CRLF)
-;~ 				ContinueLoop
-;~ 			EndIf
-;~ 			_DB("Cargo Load: " & $aCount[0] & " x " & $aCommHaulage[0], 1)
-;~ 			$Query &= "INSERT OR IGNORE INTO cargo VALUES (" & _SQLite_Escape(StringLower($aCommHaulage[0])) & ", 0);"
-;~ 			_Execute($Query, $DbED)
-;~ 			$Query = "UPDATE cargo SET count = count + " & $aCount[0] & " WHERE name = " & _SQLite_Escape(StringLower($aCommHaulage[0])) & ";"
-;~ 		EndIf
-;~ 		$Query &= "UPDATE journal SET parsed = 1 WHERE filename = " & $aResult[$i][0] & " AND timestamp = " & $aResult[$i][1] & " AND content = " & _SQLite_Escape($aResult[$i][3]) & ";"
-;~ 		_Execute($Query, $DbED)
-;~ 	Next
 
-	$Query = "SELECT * FROM journal WHERE timestamp > " & $Died & " AND (event = 'MissionCompleted' AND content LIKE " & _SQLite_Escape('%CommodityReward%') & ") AND (parsed IS NULL OR parsed = " & $Debug & ")"
-	$aResult = _GetTable($Query, $DbED)
 	$Query = ""
+	$pQuery = "SELECT * FROM journal WHERE timestamp > " & $Died & " AND (event = 'MissionCompleted' OR event = 'MissionAccepted') AND content LIKE " & _SQLite_Escape('%"Commodity":"$%') & " AND (parsed IS NULL OR parsed = " & $Debug & ")"
+	$aResult = _GetTable($pQuery, $DbED)
+
+	For $i = 1 To UBound($aResult)-1
+		_SB("Update Commodity Mission accepted " & $i & " / " & UBound($aResult)-1)
+		$aCommHaulage = StringRegExp($aResult[$i][3], '(?:"Commodity":"\x24)((?U).+)(?:_Name)', 3)
+		If UBound($aCommHaulage) = 1 Then
+			$aCount = StringRegExp($aResult[$i][3], '(?:"Count":)(\d+)', 3)
+			If UBound($aCount) = 1 Then
+				If $aResult[$i][2] = "MissionAccepted" Then
+					_DB("Cargo Load: " & $aCount[0] & " x " & $aCommHaulage[0], 1)
+				Else
+					_DB("Cargo Unload: " & $aCount[0] & " x " & $aCommHaulage[0], 1)
+					$aCount[0] *= -1
+				EndIf
+				$Query &= "INSERT OR IGNORE INTO cargo VALUES (" & _SQLite_Escape(StringLower($aCommHaulage[0])) & ", 0);"
+				$Query &= "UPDATE cargo SET count = count + " & $aCount[0] & " WHERE LOWER(name) = " & _SQLite_Escape(StringLower($aCommHaulage[0])) & ";"
+			EndIf
+		EndIf
+		$Query &= "UPDATE journal SET parsed = 1 WHERE filename = " & $aResult[$i][0] & " AND timestamp = " & $aResult[$i][1] & " AND content = " & _SQLite_Escape($aResult[$i][3]) & ";"
+	Next
+
+	$pQuery = "SELECT * FROM journal WHERE timestamp > " & $Died & " AND (event = 'MissionCompleted' AND content LIKE " & _SQLite_Escape('%CommodityReward%') & ") AND (parsed IS NULL OR parsed = " & $Debug & ")"
+	$aResult = _GetTable($pQuery, $DbED)
+
 	For $i = 1 To UBound($aResult)-1
 		_SB("Update Commodity Mission Reward " & $i & " / " & UBound($aResult)-1)
 		$aCommReward = StringRegExp($aResult[$i][3], '(?:CommodityReward":\x5B)((?U).+)(?:\x5D)', 3)
 		If UBound($aCommReward) > 0 Then
 			$aName = StringRegExp($aCommReward[0], '(?:\x7B "Name": ")((?U).+)(?:")', 3)
-			If UBound($aName) > 0 Then
-				$aCount = StringRegExp($aCommReward[0], '(?:"Count": )(\d+)', 3)
-				If UBound($aCount) > 0 Then
-					If $aCount[0] > 0 Then
-						_DB("Cargo Rewarded: " & $aCount[0] & " x " & $aName[0], 1)
-						$Query = "INSERT OR IGNORE INTO cargo VALUES (" & _SQLite_Escape($aName[0]) & ", 0);"
-						_Execute($Query, $DbED)
-						$Query = "UPDATE cargo SET count = count + " & $aCount[0] & " WHERE name = " & _SQLite_Escape($aName[0]) & ";"
-						_Execute($Query, $DbED)
-					EndIf
-				EndIf
+			$aCount = StringRegExp($aCommReward[0], '(?:"Count": )(\d+)', 3)
+			If UBound($aName) > 0 And UBound($aCount) > 0 Then
+				_DB("Cargo Rewarded: " & $aCount[0] & " x " & $aName[0], 1)
+				$Query &= "INSERT OR IGNORE INTO cargo VALUES (" & _SQLite_Escape($aName[0]) & ", 0);" & @CRLF
+				$Query &= "UPDATE cargo SET count = count + " & $aCount[0] & " WHERE LOWER(name) = " & _SQLite_Escape(StringLower($aName[0])) & ";" & @CRLF
 			EndIf
 		EndIf
-		$Query &= "UPDATE journal SET parsed = 1 WHERE filename = " & $aResult[$i][0] & " AND timestamp = " & $aResult[$i][1] & " AND content = " & _SQLite_Escape($aResult[$i][3]) & ";"
-		_Execute($Query, $DbED)
+		$Query &= "UPDATE journal SET parsed = 1 WHERE filename = " & $aResult[$i][0] & " AND timestamp = " & $aResult[$i][1] & " AND content = " & _SQLite_Escape($aResult[$i][3]) & ";" & @CRLF
 	Next
 
-	$Query = "SELECT * FROM journal WHERE timestamp > " & $Died & " AND (event = 'MarketBuy' Or event = 'MarketSell') AND (parsed IS NULL OR parsed = " & $Debug & ")"
-	$aResult = _GetTable($Query, $DbED)
-	$Query = ""
+	$pQuery = "SELECT * FROM journal WHERE timestamp > " & $Died & " AND (event = 'MarketBuy' Or event = 'MarketSell') AND (parsed IS NULL OR parsed = " & $Debug & ")"
+	$aResult = _GetTable($pQuery, $DbED)
 	For $i = 1 To UBound($aResult)-1
-		_SB("Update Commodities Market Buy / Sell " & $i & " / " & UBound($aResult)-1)
+		_SB("Update Market Buy / Sell " & $i & " / " & UBound($aResult)-1)
 		$aName = StringRegExp($aResult[$i][3], '(?:Type":")((?U).+)(?:")', 3)
-		If UBound($aName) > 0 Then
-			$aCount = StringRegExp($aResult[$i][3], '(?:Count":)(\d+)', 3)
-			If UBound($aCount) > 0 Then
-				If $aResult[$i][2] = "MarketSell" Then
-					_DB("Cargo Sold: " & $aCount[0] & " x " & $aName[0], 1)
-					$aCount[0] *= -1
-				Else
-					_DB("Cargo Bought: " & $aCount[0] & " x " & $aName[0], 1)
-				EndIf
-				$Query = "INSERT OR IGNORE INTO cargo VALUES (" & _SQLite_Escape($aName[0]) & ", 0);"
-				_Execute($Query, $DbED)
-				$Query = "UPDATE cargo SET count = count + " & $aCount[0] & " WHERE name = " & _SQLite_Escape($aName[0]) & ";"
-				_Execute($Query, $DbED)
+		$aCount = StringRegExp($aResult[$i][3], '(?:Count":)(\d+)', 3)
+		If UBound($aName) > 0 And UBound($aCount) > 0 Then
+			If $aResult[$i][2] = "MarketSell" Then
+				_DB("Cargo Sold: " & $aCount[0] & " x " & $aName[0], 1)
+				$aCount[0] *= -1
+			Else
+				_DB("Cargo Bought: " & $aCount[0] & " x " & $aName[0], 1)
 			EndIf
+			$Query &= "INSERT OR IGNORE INTO cargo VALUES (" & _SQLite_Escape($aName[0]) & ", 0);" & @CRLF
+			$Query &= "UPDATE cargo SET count = count + " & $aCount[0] & " WHERE LOWER(name) = " & _SQLite_Escape(StringLower($aName[0])) & ";" & @CRLF
 		EndIf
-		$Query = "UPDATE journal SET parsed = 1 WHERE filename = " & $aResult[$i][0] & " AND timestamp = " & $aResult[$i][1] & " AND content = " & _SQLite_Escape($aResult[$i][3]) & ";"
-		_Execute($Query, $DbED)
+		$Query &= "UPDATE journal SET parsed = 1 WHERE filename = " & $aResult[$i][0] & " AND timestamp = " & $aResult[$i][1] & " AND content = " & _SQLite_Escape($aResult[$i][3]) & ";" & @CRLF
 	Next
 
-
-	$Query = "SELECT * FROM journal WHERE timestamp > " & $Died & " AND (event = 'CollectCargo' OR event = 'EjectCargo') AND (parsed IS NULL OR parsed = " & $Debug & ")"
-	$aResult = _GetTable($Query, $DbED)
-	$Query = ""
+	$pQuery = "SELECT * FROM journal WHERE timestamp > " & $Died & " AND (event = 'BuyDrones' OR event = 'SellDrones') AND (parsed IS NULL OR parsed = " & $Debug & ")"
+	$aResult = _GetTable($pQuery, $DbED)
 	For $i = 1 To UBound($aResult)-1
-		_SB("Update Commodities Cargo Collected / Ejected " & $i & " / " & UBound($aResult)-1)
+		_SB("Update Drones " & $i & " / " & UBound($aResult)-1)
+		$aName = StringRegExp($aResult[$i][3], '(?:Type":")((?U).+)(?:")', 3)
+		If UBound($aName) = 1 Then
+			$aCount = StringRegExp($aResult[$i][3], '(?:Count":)(\d+)', 3)
+			If UBound($aCount) = 1 Then
+				If $aResult[$i][2] = "BuyDrones" Then
+					_DB("Bought " & $aCount[0] & " x " & $aName[0], 1)
+				Else
+					_DB("Sold " & $aCount[0] & " x " & $aName[0], 1)
+					$aCount[0] *= -1
+				EndIf
+				$Query &= "INSERT OR IGNORE INTO cargo VALUES (" & _SQLite_Escape($aName[0]) & ", 0);"  & @CRLF
+				$Query &= "UPDATE cargo SET count = count + " & $aCount[0] & " WHERE LOWER(name) = " & _SQLite_Escape(StringLower($aName[0])) & ";" & @CRLF
+			EndIf
+		EndIf
+		$Query &= "UPDATE journal SET parsed = 1 WHERE filename = " & $aResult[$i][0] & " AND timestamp = " & $aResult[$i][1] & " AND content = " & _SQLite_Escape($aResult[$i][3]) & ";" & @CRLF
+	Next
+
+	$pQuery = "SELECT * FROM journal WHERE timestamp > " & $Died & " AND (event = 'CollectCargo' OR event = 'EjectCargo') AND (parsed IS NULL OR parsed = " & $Debug & ")"
+	$aResult = _GetTable($pQuery, $DbED)
+	For $i = 1 To UBound($aResult)-1
+		_SB("Update Cargo Collected / Ejected " & $i & " / " & UBound($aResult)-1)
 		$aName = StringRegExp($aResult[$i][3], '(?:Type":")((?U).+)(?:")', 3)
 		If UBound($aName) = 1 Then
 			If $aResult[$i][2] = "CollectCargo" Then
-				_DB("Collected 1 x " & $aName[0], 1)
 				Dim $aCount[1] = [-1]
 			Else
 				$aCount = StringRegExp($aResult[$i][3], '(?:Count":)(\d+)', 3)
-				If Not UBound($aCount) > 0 Then
-					_DB("ERROR - Cannot get count on Cargo Collected / Ejected " & $aResult[$i][3], 1)
-					FileWrite(@ScriptDir & "\Error.log", "ERROR - Cannot get count on Haulage " & $aResult[$i][3] & @CRLF)
-					ContinueLoop
-				EndIf
-				_DB("Ejected " & $aCount[0] & " x " & $aName[0], 1)
 			EndIf
-			$Query = "INSERT OR IGNORE INTO cargo VALUES (" & _SQLite_Escape($aName[0]) & ", 0);"
-			_Execute($Query, $DbED)
-			$Query = "UPDATE cargo SET count = count - " & $aCount[0] & " WHERE name = " & _SQLite_Escape($aName[0]) & ";"
-			_Execute($Query, $DbED)
+			If UBound($aCount) = 1 Then
+				If $aCount[0] < 0 Then
+					_DB("Collected 1 x " & $aName[0], 1)
+				Else
+					_DB("Ejected " & $aCount[0] & " x " & $aName[0], 1)
+				EndIf
+				$Query &= "INSERT OR IGNORE INTO cargo VALUES (" & _SQLite_Escape($aName[0]) & ", 0);" & @CRLF
+				$Query &= "UPDATE cargo SET count = count - " & $aCount[0] & " WHERE LOWER(name) = " & _SQLite_Escape(StringLower($aName[0])) & ";" & @CRLF
+			EndIf
 		EndIf
-		$Query = "UPDATE journal SET parsed = 1 WHERE filename = " & $aResult[$i][0] & " AND timestamp = " & $aResult[$i][1] & " AND content = " & _SQLite_Escape($aResult[$i][3]) & ";"
-		_Execute($Query, $DbED)
+		$Query &= "UPDATE journal SET parsed = 1 WHERE filename = " & $aResult[$i][0] & " AND timestamp = " & $aResult[$i][1] & " AND content = " & _SQLite_Escape($aResult[$i][3]) & ";" & @CRLF
 	Next
+
+	If $Query <> "" Then
+		_Execute("BEGIN;", $DbED)
+;~ 		_DB($Query)
+		_Execute($Query, $DbED)
+		_Execute("COMMIT;", $DbED)
+	EndIf
 EndFunc
 
 Func _ParseJournal()
@@ -986,6 +1074,7 @@ Func _ParseJournal()
 			If UBound($aResult) > 1 Then
 				$LastFileTimeString = $aResult[1][0]
 				$LastTimeStamp = $aResult[1][1]
+				$LastContent = $aResult[1][3]
 			EndIf
 
 			If $LastTimeStamp <= 0 Then
@@ -1048,14 +1137,15 @@ Func _ParseJournal()
 		Else
 			$Pointer = _WinAPI_SetFilePointer($hFile, 0, $FILE_END)
 			$sLog = ""
-			If $LastFilePointer < $Pointer Then
+			If $Pointer > $LastFilePointer Then
 				$PointerWait = $Pointer
-				_SB("Wait for Log to finish Entrie")
+				_SB("Wait for Log to finish new Entries")
 				Do
-					Sleep(500)
+					Sleep(800)
 					$Pointer = _WinAPI_SetFilePointer($hFile, 0, $FILE_END)
-				Until $Pointer = $PointerWait
+				Until $Pointer >= $PointerWait
 				_SB("")
+
 				$TestTimer = TimerInit()
 				If $LastFilePointer > 0 Then
 					Local $nBytes
@@ -1066,6 +1156,7 @@ Func _ParseJournal()
 						ConsoleWrite($WatchFile & " " & _WinAPI_GetLastErrorMessage() & @CRLF)
 					EndIf
 					$sLog = BinaryToString(DllStructGetData($tBuffer, 1))
+					_DB($sLog)
 				EndIf
 			EndIf
 			_WinAPI_CloseHandle($hFile)
@@ -1112,7 +1203,11 @@ Func _ParseLog($sLog, $sFileTimeString, ByRef $QueryParser, ByRef $Entries, ByRe
 		$aTimeStamp[$j] = StringReplace($aTimeStamp[$j], ":", "")
 		$aTimeStamp[$j] = Number($aTimeStamp[$j])
 
-		If $LastTimeStamp >= $aTimeStamp[$j] Then
+		If $LastTimeStamp > $aTimeStamp[$j] Then
+			ContinueLoop
+		EndIf
+
+		If $LastTimeStamp = $aTimeStamp[$j] And $LastContent = $aContent[$j] Then
 			ContinueLoop
 		EndIf
 
@@ -1122,10 +1217,10 @@ Func _ParseLog($sLog, $sFileTimeString, ByRef $QueryParser, ByRef $Entries, ByRe
 			$Inserts += 1
 			$Query &= "INSERT INTO journal VALUES (" & $sFileTimeString & "," & $aTimeStamp[$j] & "," & _SQLite_Escape($aEvent[$j]) & "," & _SQLite_Escape($aContent[$j]) & ", NULL);" & @CRLF
 		EndIf
-
-		$QueryParser = "UPDATE parser SET fileTimeString = " & $sFileTimeString & ", timeStamp = " & $aTimeStamp[$j]
 	Next
+	$QueryParser = "UPDATE parser SET fileTimeString = " & $sFileTimeString & ", timeStamp = " & $aTimeStamp[UBound($aTimeStamp)-1] & ", event = " & _SQLite_Escape($aEvent[UBound($aTimeStamp)-1]) & ", content = " & _SQLite_Escape($aContent[UBound($aTimeStamp)-1])
 	$LastTimeStamp = $aTimeStamp[UBound($aTimeStamp)-1]
+	$LastContent = $aContent[UBound($aContent)-1]
 	Return $Query
 EndFunc
 
@@ -1142,6 +1237,8 @@ Func _SB($Message)
 EndFunc
 
 Func _Exit()
+	IniWrite($fIni, "SETTINGS", "Show Zeros", BitAND(GUICtrlRead($MenuSettingsShowZeros), $GUI_CHECKED))
+	IniWrite($fIni, "SETTINGS", "Parse Commodities", $ParseCommmodities)
 	$WinPos = WinGetPos($Gui, "")
 	If $WinPos[0] >=0 And $WinPos[1] >= 0 Then
 		IniWrite($fIni, "WINPOS", "GUIX", $WinPos[0])

@@ -9,12 +9,14 @@
     <ROW Property="ARPCOMMENTS" Value="This installer database contains the logic and data required to install [|ProductName]." ValueLocId="*"/>
     <ROW Property="ARPURLINFOABOUT" Value="https://github.com/Bodypull/Limpeteer"/>
     <ROW Property="ARPURLUPDATEINFO" Value="https://github.com/Bodypull/Limpeteer"/>
-    <ROW Property="MSIFASTINSTALL" MultiBuildValue="DefaultBuild:3"/>
+    <ROW Property="CTRLS" Value="3"/>
+    <ROW Property="MSIFASTINSTALL" MultiBuildValue="DefaultBuild:7"/>
     <ROW Property="Manufacturer" Value="Bodypull"/>
-    <ROW Property="ProductCode" Value="1033:{5A1C96E1-6953-4D25-B1B8-368DC8375D5D} " Type="16"/>
+    <ROW Property="ProductCode" Value="1033:{7497965A-B8AB-489F-A28C-410C7A5FF08D} " Type="16"/>
     <ROW Property="ProductLanguage" Value="1033"/>
     <ROW Property="ProductName" Value="Limpeteer"/>
-    <ROW Property="ProductVersion" Value="1.0.4.0" Type="32" TargetFile="Limpeteer.Exe"/>
+    <ROW Property="ProductVersion" Value="1.0.5.0" Type="32" TargetFile="Limpeteer.Exe"/>
+    <ROW Property="RUNAPPLICATION" Value="1" Type="4"/>
     <ROW Property="SecureCustomProperties" Value="OLDPRODUCTS;AI_NEWERPRODUCTFOUND"/>
     <ROW Property="UpgradeCode" Value="{68E1DFF6-A45E-4DB3-921F-F5E74C8827FB}"/>
     <ROW Property="WindowsType9X" MultiBuildValue="DefaultBuild:Windows 9x/ME" ValueLocId="-"/>
@@ -50,10 +52,9 @@
     <ATTRIBUTE name="CurrentFeature" value="MainFeature"/>
   </COMPONENT>
   <COMPONENT cid="caphyon.advinst.msicomp.MsiFilesComponent">
-    <ROW File="ChangeLog.txt" Component_="edmat.db" FileName="CHANGE~1.TXT|ChangeLog.txt" Attributes="0" SourcePath="ChangeLog.txt" SelfReg="false" NextFile="settings.ini"/>
+    <ROW File="ChangeLog.txt" Component_="edmat.db" FileName="CHANGE~1.TXT|ChangeLog.txt" Attributes="0" SourcePath="ChangeLog.txt" SelfReg="false"/>
     <ROW File="Limpeteer.Exe" Component_="Limpeteer.Exe" FileName="LIMPET~1.EXE|Limpeteer.Exe" Attributes="0" SourcePath="Limpeteer.Exe" SelfReg="false" NextFile="sqlite3.dll" DigSign="true"/>
     <ROW File="edmat.db" Component_="edmat.db" FileName="edmat.db" Attributes="0" SourcePath="edmat.db" SelfReg="false" NextFile="ChangeLog.txt"/>
-    <ROW File="settings.ini" Component_="edmat.db" FileName="settings.ini" Attributes="0" SourcePath="settings.ini" SelfReg="false"/>
     <ROW File="sqlite3.dll" Component_="sqlite3.dll" FileName="sqlite3.dll" Attributes="0" SourcePath="sqlite3.dll" SelfReg="false" NextFile="edmat.db"/>
   </COMPONENT>
   <COMPONENT cid="caphyon.advinst.msicomp.BuildComponent">
@@ -113,11 +114,13 @@
     <ROW Action="AI_DpiContentScale" Type="1" Source="aicustact.dll" Target="DpiContentScale"/>
     <ROW Action="AI_EnableDebugLog" Type="321" Source="aicustact.dll" Target="EnableDebugLog"/>
     <ROW Action="AI_InstallModeCheck" Type="1" Source="aicustact.dll" Target="UpdateInstallMode" WithoutSeq="true"/>
+    <ROW Action="AI_LaunchApp" Type="1" Source="aicustact.dll" Target="[#Limpeteer.Exe]"/>
     <ROW Action="AI_PREPARE_UPGRADE" Type="65" Source="aicustact.dll" Target="PrepareUpgrade"/>
     <ROW Action="AI_RESTORE_LOCATION" Type="65" Source="aicustact.dll" Target="RestoreLocation"/>
     <ROW Action="AI_ResolveKnownFolders" Type="1" Source="aicustact.dll" Target="AI_ResolveKnownFolders"/>
     <ROW Action="AI_SHOW_LOG" Type="65" Source="aicustact.dll" Target="LaunchLogFile" WithoutSeq="true"/>
     <ROW Action="AI_STORE_LOCATION" Type="51" Source="ARPINSTALLLOCATION" Target="[APPDIR]"/>
+    <ROW Action="AI_ViewReadme" Type="1" Source="aicustact.dll" Target="[#ChangeLog.txt]"/>
     <ROW Action="SET_APPDIR" Type="307" Source="APPDIR" Target="[ProgramFilesFolder][Manufacturer]\[ProductName]" MultiBuildTarget="DefaultBuild:[AppDataFolder][Manufacturer]\[ProductName]"/>
     <ROW Action="SET_SHORTCUTDIR" Type="307" Source="SHORTCUTDIR" Target="[ProgramMenuFolder][ProductName]" MultiBuildTarget="DefaultBuild:[SHORTCUTDIR]"/>
     <ROW Action="SET_TARGETDIR_TO_APPDIR" Type="51" Source="TARGETDIR" Target="[APPDIR]"/>
