@@ -1,7 +1,7 @@
 #Region ;**** Directives created by AutoIt3Wrapper_GUI ****
 #AutoIt3Wrapper_Icon=..\..\..\..\..\..\Program Files (x86)\AutoIt3\Aut2Exe\Icons\AutoIt_Main_v10_256x256_RGB-A.ico
 #AutoIt3Wrapper_Outfile=Limpeteer.Exe
-#AutoIt3Wrapper_Res_Fileversion=1.0.5.0
+#AutoIt3Wrapper_Res_Fileversion=1.0.6.0
 #EndRegion ;**** Directives created by AutoIt3Wrapper_GUI ****
 #include <Date.au3>
 #include <GUIConstantsEx.au3>
@@ -334,17 +334,26 @@ Func _ShowBluePrint()
 
 	For $i = 1 To UBound($aResult)-1
 		_SB("Building " & $i & " of " & UBound($aResult)-1 & " Blueprints")
-		$Query = "SELECT name, location FROM ingredients JOIN components ON inaraID = component WHERE blueprintID = " & $aResult[$i][1] & " AND ingredients.grade = " & $aResult[$i][4]
+		$Query = "SELECT name, location, components.type FROM ingredients JOIN components ON inaraID = component WHERE blueprintID = " & $aResult[$i][1] & " AND ingredients.grade = " & $aResult[$i][4]
 		$aComponents = _GetTable($Query, $DbED)
 		For $j = 1 To UBound($aComponents)-1
 			$aResult[$i][$Columns + ($j-1) * 2] = $aComponents[$j][0]
-			$Query = "SELECT count FROM materials JOIN clearNames ON clearNames.name = materials.name AND clearName = " & _SQLite_Escape($aComponents[$j][0])
-
 			$aResult[$i][$Columns + ($j-1) * 2 + 1] = $aComponents[$j][1]
+			If $aComponents[$j][2] = "Commodity" Then
+				$Query = "SELECT count FROM cargo "
+				$Query &= "WHERE LOWER(name) = " & _SQLite_Escape(StringLower(StringReplace($aComponents[$j][0], " ", ""))) & " "
+			Else
+				$Query = "SELECT materials.count FROM materials "
+				$Query &= "JOIN clearNames ON clearNames.name = materials.name AND clearName = " & _SQLite_Escape($aComponents[$j][0]) & " "
+			EndIf
+
 			$aCount = _GetTable($Query, $DbED)
+
+
 			If UBound($aCount) > 1 Then
-				If $aCount[1][0] > 0 Then
-					$aResult[$i][$Columns + ($j-1) * 2] = "[" & $aCount[1][0] & "] " & $aResult[$i][$Columns + ($j-1) * 2]
+				$Count = $aCount[1][0]
+				If $Count > 0 Then
+					$aResult[$i][$Columns + ($j-1) * 2] = "[" & $Count & "] " & $aResult[$i][$Columns + ($j-1) * 2]
 					$aResult[$i][$Columns + ($j-1) * 2+1] = "Yes"
 				EndIf
 			EndIf
@@ -664,6 +673,7 @@ Func _PopCombo($ControlID=0)
 			GUICtrlSetData($ComboLvl, $sAdd, $Select)
 		EndIf
 	EndIf
+
 	$TestTimer = TimerInit()
 	If GUICtrlRead($ComboCat) <> "Any" Or GUICtrlRead($ComboMod) <> "Any" Or GUICtrlRead($ComboEng) <> "Any" Or GUICtrlRead($ComboLvl) <> "Any" Then
 		$Query = "SELECT 1 "
@@ -1239,6 +1249,7 @@ EndFunc
 Func _Exit()
 	IniWrite($fIni, "SETTINGS", "Show Zeros", BitAND(GUICtrlRead($MenuSettingsShowZeros), $GUI_CHECKED))
 	IniWrite($fIni, "SETTINGS", "Parse Commodities", $ParseCommmodities)
+	IniWrite($fIni, "SETTINGS", "ComboEng", GUICtrlRead($ComboEng))
 	$WinPos = WinGetPos($Gui, "")
 	If $WinPos[0] >=0 And $WinPos[1] >= 0 Then
 		IniWrite($fIni, "WINPOS", "GUIX", $WinPos[0])
