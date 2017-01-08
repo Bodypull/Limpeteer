@@ -1,3 +1,9 @@
+v1.0.8.0 
+	Added: Location Details on collected Items
+v1.0.7.0 
+	Improved: Blueprint Can Craft	
+v1.0.6.0 
+	Improved: Blueprint Can Craft	
 v1.0.5.0 
 	Fixed: Some bugs with journal import
 	Added: Option to disable commodity parsing

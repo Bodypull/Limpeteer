@@ -1,7 +1,7 @@
 #Region ;**** Directives created by AutoIt3Wrapper_GUI ****
 #AutoIt3Wrapper_Icon=..\..\..\..\..\..\Program Files (x86)\AutoIt3\Aut2Exe\Icons\AutoIt_Main_v10_256x256_RGB-A.ico
 #AutoIt3Wrapper_Outfile=Limpeteer.Exe
-#AutoIt3Wrapper_Res_Fileversion=1.0.6.0
+#AutoIt3Wrapper_Res_Fileversion=1.0.8.0
 #EndRegion ;**** Directives created by AutoIt3Wrapper_GUI ****
 #include <Date.au3>
 #include <GUIConstantsEx.au3>
@@ -39,7 +39,7 @@ Global $LastFileTimeString = -1
 Global $LastTimeStamp = -1
 Global $LastContent = -1
 Global $WatchFile = -1
-Global $sKeppEvents = "BuyDrones,CollectCargo,Died,EjectCargo,EngineerCraft,MarketBuy,MarketSell,MaterialCollected,MaterialDiscarded,MiningRefined,MissionAccepted,MissionCompleted,SellDrones,Synthesis"
+Global $sKeepEvents = "BuyDrones,CollectCargo,Died,EjectCargo,EngineerCraft,MarketBuy,MarketSell,MaterialCollected,MaterialDiscarded,MiningRefined,MissionAccepted,MissionCompleted,SellDrones,Synthesis"
 Global $fIni = @ScriptDir & "\settings.ini"
 Global $Path = IniRead($fIni, "PATH", "JOURNAL", @UserProfileDir & "\Saved Games\Frontier Developments\Elite Dangerous\")
 Global $ParseCommmodities = IniRead($fIni, "SETTINGS", "Parse Commodities", 0)
@@ -196,7 +196,6 @@ WEnd
 
 Func _ShowInara($Item, $hLV)
 	If $hLV = $g_hListViewMat Then
-		_DB("HERE")
 		$Query = "SELECT inaraID FROM components WHERE name = " & _SQLite_Escape(_GUICtrlListView_GetItemText($lvMaterials, $Item, 1))
 		$aResult = _GetTable($Query, $DbED)
 		If UBound($aResult) > 1 And Number($aResult[1][0]) > 0 Then
@@ -224,12 +223,12 @@ Func _EditItem($Item)
 		Else
 			$Query = "UPDATE materials "
 		EndIf
-		$Query &= "SET count = " & $Input & " WHERE LOWER(name) = " & _SQLite_Escape(StringLower(_GUICtrlListView_GetItemText($lvMaterials, $Item, 5)))
+		$Query &= "SET count = " & $Input & " WHERE LOWER(name) = " & _SQLite_Escape(StringLower(_GUICtrlListView_GetItemText($lvMaterials, $Item, 6)))
 		_Execute($Query, $DbED)
 		If @error Then
 			_DB("Update failed", 1)
 		Else
-			_DB($gValue &  " --> " & $Input & " " & _GUICtrlListView_GetItemText($lvMaterials, $Item, 1) & " (" & _GUICtrlListView_GetItemText($lvMaterials, $Item, 5) & ")", 1)
+			_DB($gValue &  " --> " & $Input & " " & _GUICtrlListView_GetItemText($lvMaterials, $Item, 1) & " (" & _GUICtrlListView_GetItemText($lvMaterials, $Item, 6) & ")", 1)
 			_ExportCSV(False)
 		EndIf
 	EndIf
@@ -704,6 +703,7 @@ Func _PopLVmaterials()
 	$Query &= "category AS 'Category   ', "
 	$Query &= "COUNT(blueprintID) AS 'hide', "
 	$Query &= "components.grade AS 'Grade      ', "
+	$Query &= "components.location AS 'Location      ', "
 	$Query &= "materials.name AS 'Encoded Name ' "
 	$Query &= "FROM materials "
 	$Query &= "LEFT JOIN clearNames ON LOWER(clearNames.name) = LOWER(materials.name) "
@@ -719,9 +719,11 @@ Func _PopLVmaterials()
 		$Query &= "SELECT "
 		$Query &= "count AS 'Count ', "
 		$Query &= "CASE WHEN clearNames.clearName IS NOT NULL THEN clearNames.clearName ELSE CASE WHEN components.name IS NOT NULL THEN components.name ELSE commodities.name END END AS cName, "
-		$Query &= "CASE WHEN components.type IS NOT NULL THEN components.type ELSE commodities.cat_name || ' (Commodity)' END AS 'Category      ', "
+;~ 		$Query &= "CASE WHEN components.type IS NOT NULL THEN components.type ELSE commodities.cat_name || ' (Commodity)' END AS 'Category      ', "
+		$Query &= "CASE WHEN components.type IS NULL THEN components.type ELSE commodities.cat_name || ' (Commodity)' END AS 'Category      ', "
 		$Query &= "COUNT(blueprintID) AS 'hide', "
 		$Query &= "CASE WHEN components.grade IS NOT NULL THEN components.grade ELSE '' END AS 'Grade     ', "
+		$Query &= "components.location AS 'Location      ', "
 		$Query &= "cargo.name AS 'Encoded Name ' "
 		$Query &= "FROM cargo "
 		$Query &= "LEFT JOIN clearNames ON LOWER(clearNames.name) = LOWER(cargo.name) "
@@ -740,6 +742,7 @@ Func _PopLVmaterials()
 	If @error Then Return
 
 	_ArraySort($aArray, 0, 1, 0, 1)
+;~ 	_ArrayDisplay($aArray)
 	_GUICtrlListView_BeginUpdate($lvMaterials)
 
 	Dim $aGroupInfo[5] = ["", "Engineering Commodities", "Materials", "Data", "Data / Materials Not Used By Engineers"]
@@ -768,7 +771,7 @@ Func _PopLVmaterials()
 			$Align = 0
 		EndIf
 
-		If $aArray[0][$i] = "hide" Then
+		If StringInStr($aArray[0][$i], "hide") Then
 			$Width = 0
 		Else
 			$Width = StringLen($aArray[0][$i]) * 8
@@ -1223,7 +1226,7 @@ Func _ParseLog($sLog, $sFileTimeString, ByRef $QueryParser, ByRef $Entries, ByRe
 
 		$Entries += 1
 
-		If StringInStr($sKeppEvents, $aEvent[$j]) Then
+		If StringInStr($sKeepEvents, $aEvent[$j]) Or 1 Then
 			$Inserts += 1
 			$Query &= "INSERT INTO journal VALUES (" & $sFileTimeString & "," & $aTimeStamp[$j] & "," & _SQLite_Escape($aEvent[$j]) & "," & _SQLite_Escape($aContent[$j]) & ", NULL);" & @CRLF
 		EndIf
